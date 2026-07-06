@@ -1,0 +1,496 @@
+/* ============================================================================
+ * evm-ui — shared design system for EVM tooling apps
+ * ----------------------------------------------------------------------------
+ * A single stylesheet: design tokens (CSS custom properties) + component
+ * classes. Every component in the library styles itself purely through the
+ * `evm-` class families below, so the whole look is retargetable by overriding
+ * tokens. Identity: near-black surfaces + teal accent (dark-first).
+ * ============================================================================ */
+
+:root {
+  /* ---- Surfaces (app canvas → raised panels) ---- */
+  --evm-bg: #08080a;
+  --evm-surface-1: #111114;
+  --evm-surface-2: #18181c;
+  --evm-surface-3: #202026;
+  --evm-surface-4: #28282f;
+
+  /* ---- Borders ---- */
+  --evm-border: #2a2a32;
+  --evm-border-strong: #38383f;
+
+  /* ---- Text ramp (primary → faint) ---- */
+  --evm-text-1: #eaeaef;
+  --evm-text-2: #a0a0b8;
+  --evm-text-3: #6a6a80;
+  --evm-text-4: #48485a;
+  --evm-text-on-accent: #04120f;
+
+  /* ---- Accent (teal) ---- */
+  --evm-accent: #00e4b8;
+  --evm-accent-hover: #2af0ca;
+  --evm-accent-muted: rgba(0, 228, 184, 0.20);
+  --evm-accent-faint: rgba(0, 228, 184, 0.09);
+
+  /* ---- Semantic roles (each with an alpha-faded background) ---- */
+  --evm-danger: #ff4060;
+  --evm-danger-faint: rgba(255, 64, 96, 0.10);
+  --evm-warning: #ffaa22;
+  --evm-warning-faint: rgba(255, 170, 34, 0.10);
+  --evm-success: #4ade80;
+  --evm-success-faint: rgba(74, 222, 128, 0.10);
+  --evm-info: #5599ff;
+  --evm-info-faint: rgba(85, 153, 255, 0.10);
+  --evm-purple: #9977ff;
+  --evm-purple-faint: rgba(153, 119, 255, 0.10);
+
+  /* ---- Radius scale ---- */
+  --evm-radius-sm: 4px;
+  --evm-radius-md: 6px;
+  --evm-radius-lg: 10px;
+  --evm-radius-pill: 999px;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --evm-space-1: 4px;
+  --evm-space-2: 8px;
+  --evm-space-3: 12px;
+  --evm-space-4: 16px;
+  --evm-space-5: 24px;
+  --evm-space-6: 32px;
+
+  /* ---- Typography ---- */
+  --evm-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --evm-font-mono: ui-monospace, 'SF Mono', monospace;
+  --evm-text-xs: 11px;
+  --evm-text-sm: 12px;
+  --evm-text-body: 13px;
+  --evm-text-md: 14px;
+  --evm-text-lg: 16px;
+  --evm-text-xl: 20px;
+  --evm-weight-normal: 400;
+  --evm-weight-medium: 500;
+  --evm-weight-semibold: 600;
+
+  /* ---- Elevation ---- */
+  --evm-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --evm-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+
+  /* ---- Motion ---- */
+  --evm-transition: 0.18s ease;
+}
+
+/* ---------------------------------------------------------------------------
+ * Base canvas — this is a dark-first design system. Establish the near-black
+ * canvas and default text/font so components (which use light text tokens)
+ * render correctly out of the box.
+ * ------------------------------------------------------------------------- */
+body {
+  margin: 0;
+  background: var(--evm-bg);
+  color: var(--evm-text-1);
+  font-family: var(--evm-font-sans);
+  font-size: var(--evm-text-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------------------
+ * Buttons
+ * ------------------------------------------------------------------------- */
+.evm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--evm-space-2);
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--evm-radius-md);
+  font-family: var(--evm-font-sans);
+  font-size: var(--evm-text-body);
+  font-weight: var(--evm-weight-medium);
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--evm-transition), border-color var(--evm-transition),
+    color var(--evm-transition), opacity var(--evm-transition);
+}
+.evm-btn:focus-visible {
+  outline: 2px solid var(--evm-accent);
+  outline-offset: 2px;
+}
+.evm-btn:disabled,
+.evm-btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.evm-btn--primary {
+  background: var(--evm-accent);
+  color: var(--evm-text-on-accent);
+  font-weight: var(--evm-weight-semibold);
+}
+.evm-btn--primary:not(:disabled):hover { background: var(--evm-accent-hover); }
+
+.evm-btn--secondary {
+  background: var(--evm-surface-3);
+  color: var(--evm-text-1);
+  border-color: var(--evm-border);
+}
+.evm-btn--secondary:not(:disabled):hover {
+  background: var(--evm-surface-4);
+  border-color: var(--evm-border-strong);
+}
+
+.evm-btn--ghost {
+  background: transparent;
+  color: var(--evm-text-2);
+}
+.evm-btn--ghost:not(:disabled):hover {
+  background: var(--evm-surface-2);
+  color: var(--evm-text-1);
+}
+
+.evm-btn--danger {
+  background: var(--evm-danger);
+  color: #fff;
+  font-weight: var(--evm-weight-semibold);
+}
+.evm-btn--danger:not(:disabled):hover { filter: brightness(1.1); }
+
+.evm-btn--sm { padding: 4px 10px; font-size: var(--evm-text-sm); border-radius: var(--evm-radius-sm); }
+.evm-btn--lg { padding: 11px 22px; font-size: var(--evm-text-md); }
+.evm-btn--block { width: 100%; }
+
+/* ---------------------------------------------------------------------------
+ * Inputs / Select / Textarea
+ * ------------------------------------------------------------------------- */
+.evm-input,
+.evm-select,
+.evm-textarea {
+  width: 100%;
+  background: var(--evm-surface-2);
+  border: 1px solid var(--evm-border);
+  color: var(--evm-text-1);
+  padding: 8px 12px;
+  border-radius: var(--evm-radius-md);
+  font-family: var(--evm-font-sans);
+  font-size: var(--evm-text-body);
+  line-height: 1.4;
+  transition: border-color var(--evm-transition), box-shadow var(--evm-transition);
+}
+.evm-textarea { resize: vertical; min-height: 72px; }
+.evm-input:focus,
+.evm-select:focus,
+.evm-textarea:focus {
+  outline: none;
+  border-color: var(--evm-accent);
+  box-shadow: 0 0 0 3px var(--evm-accent-faint);
+}
+.evm-input::placeholder,
+.evm-textarea::placeholder { color: var(--evm-text-3); }
+.evm-input:disabled,
+.evm-select:disabled,
+.evm-textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+.evm-input--mono { font-family: var(--evm-font-mono); }
+.evm-input--invalid { border-color: var(--evm-danger); }
+.evm-input--invalid:focus { box-shadow: 0 0 0 3px var(--evm-danger-faint); }
+
+.evm-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--evm-text-3) 50%),
+    linear-gradient(135deg, var(--evm-text-3) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+ * Field (label + control + hint/error)
+ * ------------------------------------------------------------------------- */
+.evm-field { display: flex; flex-direction: column; gap: 6px; }
+.evm-field-label {
+  font-size: var(--evm-text-sm);
+  font-weight: var(--evm-weight-medium);
+  color: var(--evm-text-2);
+}
+.evm-field-label__req { color: var(--evm-danger); margin-left: 2px; }
+.evm-field-hint { font-size: var(--evm-text-xs); color: var(--evm-text-3); }
+.evm-field-error { font-size: var(--evm-text-xs); color: var(--evm-danger); }
+
+/* ---------------------------------------------------------------------------
+ * Card / Panel
+ * ------------------------------------------------------------------------- */
+.evm-card {
+  background: var(--evm-surface-1);
+  border: 1px solid var(--evm-border);
+  border-radius: var(--evm-radius-lg);
+  overflow: hidden;
+}
+.evm-card--flat { background: var(--evm-surface-2); border-color: transparent; }
+.evm-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--evm-space-3);
+  padding: var(--evm-space-3) var(--evm-space-4);
+  border-bottom: 1px solid var(--evm-border);
+}
+.evm-card-title {
+  margin: 0;
+  font-size: var(--evm-text-md);
+  font-weight: var(--evm-weight-semibold);
+  color: var(--evm-text-1);
+}
+.evm-card-subtitle { font-size: var(--evm-text-sm); color: var(--evm-text-3); margin-top: 2px; }
+.evm-card-body { padding: var(--evm-space-4); }
+
+/* ---------------------------------------------------------------------------
+ * Badge (generic tones)
+ * ------------------------------------------------------------------------- */
+.evm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--evm-space-1);
+  padding: 2px 8px;
+  border-radius: var(--evm-radius-pill);
+  font-size: var(--evm-text-xs);
+  font-weight: var(--evm-weight-medium);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.evm-badge--neutral { background: var(--evm-surface-3); color: var(--evm-text-2); }
+.evm-badge--accent { background: var(--evm-accent-faint); color: var(--evm-accent); }
+.evm-badge--success { background: var(--evm-success-faint); color: var(--evm-success); }
+.evm-badge--warning { background: var(--evm-warning-faint); color: var(--evm-warning); }
+.evm-badge--danger { background: var(--evm-danger-faint); color: var(--evm-danger); }
+.evm-badge--info { background: var(--evm-info-faint); color: var(--evm-info); }
+.evm-badge--purple { background: var(--evm-purple-faint); color: var(--evm-purple); }
+.evm-badge__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ---------------------------------------------------------------------------
+ * Chain badge (chain-color dot/icon + network name)
+ * ------------------------------------------------------------------------- */
+.evm-chain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border-radius: var(--evm-radius-pill);
+  background: var(--evm-surface-3);
+  color: var(--evm-text-2);
+  font-size: var(--evm-text-xs);
+  font-weight: var(--evm-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.evm-chain-badge:hover { background: var(--evm-surface-4); color: var(--evm-text-1); }
+.evm-chain-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--evm-chain-color, var(--evm-text-3));
+  flex: none;
+}
+.evm-chain-badge__icon { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+
+/* ---------------------------------------------------------------------------
+ * Type badge (mono, for tx/param types)
+ * ------------------------------------------------------------------------- */
+.evm-typebadge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--evm-radius-sm);
+  font-family: var(--evm-font-mono);
+  font-size: var(--evm-text-xs);
+  background: var(--evm-surface-3);
+  color: var(--evm-text-2);
+}
+.evm-typebadge--address { background: var(--evm-info-faint); color: var(--evm-info); }
+.evm-typebadge--uint { background: var(--evm-purple-faint); color: var(--evm-purple); }
+.evm-typebadge--bool { background: var(--evm-warning-faint); color: var(--evm-warning); }
+.evm-typebadge--bytes { background: var(--evm-success-faint); color: var(--evm-success); }
+
+/* ---------------------------------------------------------------------------
+ * Tabs
+ * ------------------------------------------------------------------------- */
+.evm-tabs {
+  display: flex;
+  gap: var(--evm-space-1);
+  border-bottom: 1px solid var(--evm-border);
+  padding: 0 var(--evm-space-2);
+}
+.evm-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--evm-text-2);
+  padding: 10px 16px;
+  font-family: var(--evm-font-sans);
+  font-size: var(--evm-text-body);
+  font-weight: var(--evm-weight-medium);
+  cursor: pointer;
+  transition: color var(--evm-transition), border-color var(--evm-transition);
+}
+.evm-tab:hover { color: var(--evm-text-1); }
+.evm-tab--active { color: var(--evm-accent); border-bottom-color: var(--evm-accent); }
+.evm-tab__count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--evm-radius-pill);
+  background: var(--evm-surface-3);
+  color: var(--evm-text-3);
+  font-size: var(--evm-text-xs);
+}
+.evm-tab--active .evm-tab__count { background: var(--evm-accent-faint); color: var(--evm-accent); }
+
+/* ---------------------------------------------------------------------------
+ * Status bar
+ * ------------------------------------------------------------------------- */
+.evm-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--evm-space-4);
+  height: 28px;
+  padding: 0 var(--evm-space-3);
+  background: var(--evm-surface-1);
+  border-top: 1px solid var(--evm-border);
+  font-size: var(--evm-text-xs);
+  color: var(--evm-text-3);
+}
+.evm-statusbar__item { display: inline-flex; align-items: center; gap: 6px; }
+.evm-statusbar__label { color: var(--evm-text-3); }
+.evm-statusbar__value { color: var(--evm-text-2); font-family: var(--evm-font-mono); }
+.evm-statusbar__spacer { flex: 1; }
+.evm-statusbar__item--error { color: var(--evm-danger); }
+
+/* ---------------------------------------------------------------------------
+ * Modal
+ * ------------------------------------------------------------------------- */
+.evm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--evm-space-5);
+  z-index: 1000;
+}
+.evm-modal {
+  background: var(--evm-surface-1);
+  border: 1px solid var(--evm-border-strong);
+  border-radius: var(--evm-radius-lg);
+  box-shadow: var(--evm-shadow-lg);
+  width: 100%;
+  max-width: 440px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.evm-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--evm-space-4);
+  border-bottom: 1px solid var(--evm-border);
+}
+.evm-modal-title { margin: 0; font-size: var(--evm-text-lg); font-weight: var(--evm-weight-semibold); color: var(--evm-text-1); }
+.evm-modal-close {
+  appearance: none; background: none; border: none;
+  color: var(--evm-text-3); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px;
+}
+.evm-modal-close:hover { color: var(--evm-text-1); }
+.evm-modal-body { padding: var(--evm-space-4); overflow-y: auto; color: var(--evm-text-2); font-size: var(--evm-text-body); }
+.evm-modal-footer {
+  display: flex; justify-content: flex-end; gap: var(--evm-space-2);
+  padding: var(--evm-space-3) var(--evm-space-4);
+  border-top: 1px solid var(--evm-border);
+}
+
+/* ---------------------------------------------------------------------------
+ * Copy field (mono value + copy affordance)
+ * ------------------------------------------------------------------------- */
+.evm-copyfield {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--evm-space-2);
+  max-width: 100%;
+  padding: 4px 6px 4px 10px;
+  background: var(--evm-surface-2);
+  border: 1px solid var(--evm-border);
+  border-radius: var(--evm-radius-md);
+  font-family: var(--evm-font-mono);
+  font-size: var(--evm-text-sm);
+  color: var(--evm-text-1);
+}
+.evm-copyfield__label { color: var(--evm-text-3); font-family: var(--evm-font-sans); }
+.evm-copyfield__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evm-copyfield__btn {
+  appearance: none; border: none; background: var(--evm-surface-3);
+  color: var(--evm-text-2); border-radius: var(--evm-radius-sm);
+  padding: 3px 8px; font-size: var(--evm-text-xs); cursor: pointer; font-family: var(--evm-font-sans);
+  transition: background var(--evm-transition), color var(--evm-transition);
+}
+.evm-copyfield__btn:hover { background: var(--evm-surface-4); color: var(--evm-text-1); }
+.evm-copyfield__btn--copied { color: var(--evm-accent); }
+
+/* ---------------------------------------------------------------------------
+ * Address text (mono, truncatable)
+ * ------------------------------------------------------------------------- */
+.evm-address { font-family: var(--evm-font-mono); font-size: var(--evm-text-sm); color: var(--evm-text-1); }
+.evm-address--muted { color: var(--evm-text-2); }
+
+/* ---------------------------------------------------------------------------
+ * Spinner
+ * ------------------------------------------------------------------------- */
+.evm-spinner {
+  display: inline-block;
+  border-radius: 50%;
+  border: 2px solid var(--evm-surface-4);
+  border-top-color: var(--evm-accent);
+  animation: evm-spin 0.7s linear infinite;
+}
+@keyframes evm-spin { to { transform: rotate(360deg); } }
+
+/* ---------------------------------------------------------------------------
+ * Empty state
+ * ------------------------------------------------------------------------- */
+.evm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--evm-space-2);
+  text-align: center;
+  padding: var(--evm-space-6) var(--evm-space-4);
+  color: var(--evm-text-3);
+}
+.evm-empty__title { font-size: var(--evm-text-md); font-weight: var(--evm-weight-semibold); color: var(--evm-text-2); }
+.evm-empty__desc { font-size: var(--evm-text-body); color: var(--evm-text-3); max-width: 32ch; }
+
+/* ---------------------------------------------------------------------------
+ * Table
+ * ------------------------------------------------------------------------- */
+.evm-table-wrap { border: 1px solid var(--evm-border); border-radius: var(--evm-radius-lg); overflow: hidden; }
+.evm-table { width: 100%; border-collapse: collapse; font-size: var(--evm-text-body); }
+.evm-table thead th {
+  text-align: left;
+  padding: 10px var(--evm-space-3);
+  background: var(--evm-surface-2);
+  color: var(--evm-text-3);
+  font-weight: var(--evm-weight-medium);
+  font-size: var(--evm-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--evm-border);
+}
+.evm-table tbody td {
+  padding: 10px var(--evm-space-3);
+  color: var(--evm-text-1);
+  border-bottom: 1px solid var(--evm-border);
+}
+.evm-table tbody tr:last-child td { border-bottom: none; }
+.evm-table tbody tr:hover td { background: var(--evm-surface-1); }
+.evm-table--zebra tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.015); }

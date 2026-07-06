@@ -1,0 +1,34 @@
+{
+  "name": "seed-vault",
+  "version": "0.1.0",
+  "description": "Validate seed phrases offline and encrypt them into a portable OpenSSL file",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "start": "npm run build && electron .",
+    "test": "npm run build:test && node --test test/*.test.mjs",
+    "build:test": "node esbuild.mjs --test"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.9.0",
+    "@noble/hashes": "^1.8.0",
+    "@scure/base": "^1.2.0",
+    "@scure/bip32": "^1.7.0",
+    "@scure/bip39": "^1.6.0",
+    "evm-ui": "file:../evm-ui",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "electron": "^33.0.0",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.6.3"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "esbuild@0.24.2": true
+  }
+}

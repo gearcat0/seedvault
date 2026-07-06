@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- No network, ever: everything must come from the app's own files. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; font-src 'self'">
+  <title>Seed Vault</title>
+  <link rel="stylesheet" href="dist/renderer.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script src="dist/renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="ds/styles.css">
+<script src="assets/bip39-english.js"></script>
+<script src="assets/seedcrypto.js"></script>
+<style>
+html, body { height: 100%; margin: 0; }
+.evm-input, .evm-select, .evm-textarea { box-sizing: border-box; }
+@keyframes evm-spin { to { transform: rotate(360deg); } }
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:var(--evm-bg);font-family:var(--evm-font-sans);color:var(--evm-text-1);overflow:hidden" data-screen-label="Seed Vault">
+
+  <!-- ============ Header ============ -->
+  <div style="display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--evm-border);background:var(--evm-surface-1);flex:none">
+    <div style="width:28px;height:28px;border-radius:var(--evm-radius-md);background:var(--evm-accent-faint);display:flex;align-items:center;justify-content:center;color:var(--evm-accent);font-family:var(--evm-font-mono);font-size:13px;font-weight:var(--evm-weight-semibold)">SV</div>
+    <div style="display:flex;flex-direction:column">
+      <div style="font-size:var(--evm-text-md);font-weight:var(--evm-weight-semibold)">Seed Vault</div>
+      <div style="font-size:var(--evm-text-xs);color:var(--evm-text-3)">Validate seed phrases offline · encrypt to a portable OpenSSL file</div>
+    </div>
+    <div style="flex:1"></div>
+    <span class="evm-badge evm-badge--success"><span class="evm-badge__dot"></span>offline — no network</span>
+    <button class="evm-btn evm-btn--primary" onClick="{{ openExport }}">Encrypt &amp; export…</button>
+  </div>
+
+  <!-- ============ Body ============ -->
+  <div style="flex:1;display:flex;min-height:0">
+
+    <!-- Sidebar -->
+    <div style="width:280px;flex:none;display:flex;flex-direction:column;border-right:1px solid var(--evm-border);background:var(--evm-surface-1)" data-screen-label="Entry list">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px">
+        <span style="font-size:var(--evm-text-xs);font-weight:var(--evm-weight-medium);color:var(--evm-text-3);text-transform:uppercase;letter-spacing:0.06em">Entries</span>
+        <span style="font-size:var(--evm-text-xs);color:var(--evm-text-4);font-family:var(--evm-font-mono)">{{ entryCount }}</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0;display:flex;flex-direction:column;padding:0 8px;gap:2px">
+        <sc-if value="{{ hasEntries }}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{ sidebarItems }}" as="item" hint-placeholder-count="0">
+            <div onClick="{{ item.onSelect }}" style="display:flex;flex-direction:column;gap:3px;padding:9px 10px;border-radius:var(--evm-radius-md);cursor:pointer;background:{{ item.bg }};border:1px solid {{ item.border }}" style-hover="background:var(--evm-surface-2)">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="flex:1;font-size:var(--evm-text-body);color:var(--evm-text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.label }}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="evm-badge evm-badge--{{ item.tone }}"><span class="evm-badge__dot"></span>{{ item.status }}</span>
+                <span style="font-size:var(--evm-text-xs);color:var(--evm-text-4)">{{ item.meta }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ noEntries }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:24px 12px;text-align:center;font-size:var(--evm-text-sm);color:var(--evm-text-4)">No entries yet.</div>
+        </sc-if>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:12px;border-top:1px solid var(--evm-border)">
+        <button class="evm-btn evm-btn--secondary" onClick="{{ addSeed }}">+ Seed phrase</button>
+        <button class="evm-btn evm-btn--ghost" onClick="{{ addNote }}">+ Text-only section</button>
+      </div>
+    </div>
+
+    <!-- Main pane -->
+    <div style="flex:1;overflow-y:auto;min-width:0" data-screen-label="Detail pane">
+      <div style="max-width:880px;margin:0 auto;padding:24px 28px 48px;display:flex;flex-direction:column;gap:16px">
+
+        <sc-if value="{{ nothingSelected }}" hint-placeholder-val="{{ false }}">
+          <div class="evm-empty" style="padding:80px 24px">
+            <div style="font-size:28px;color:var(--evm-text-4);font-family:var(--evm-font-mono)">·· ·· ··</div>
+            <div style="font-size:var(--evm-text-lg);font-weight:var(--evm-weight-semibold);color:var(--evm-text-1);margin-top:12px">Back up your seed phrases</div>
+            <div style="font-size:var(--evm-text-body);color:var(--evm-text-3);max-width:420px;margin-top:6px;text-align:center">Add each seed phrase, check the derived addresses against your wallet to rule out transcription errors, describe where it's used — then encrypt everything into a single file you can print, copy, or stash anywhere.</div>
+            <div style="display:flex;gap:8px;margin-top:18px">
+              <button class="evm-btn evm-btn--primary" onClick="{{ addSeed }}">Add a seed phrase</button>
+              <button class="evm-btn evm-btn--ghost" onClick="{{ addNote }}">Add a text-only section</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isSeed }}" hint-placeholder-val="{{ false }}">
+          <!-- Label row -->
+          <div style="display:flex;align-items:flex-end;gap:12px">
+            <div class="evm-field" style="flex:1">
+              <label class="evm-field-label">Label</label>
+              <input class="evm-input" value="{{ selLabel }}" onChange="{{ onLabelChange }}" placeholder="e.g. Ledger — main cold storage" spellCheck="false">
+            </div>
+            <button class="evm-btn evm-btn--ghost" onClick="{{ onDelete }}" style="color:{{ deleteColor }}">{{ deleteText }}</button>
+          </div>
+
+          <!-- Seed phrase card -->
+          <div class="evm-card">
+            <div class="evm-card-header">
+              <div>
+                <h3 class="evm-card-title">Seed phrase</h3>
+                <div class="evm-card-subtitle">BIP39 mnemonic — 12, 15, 18, 21 or 24 words. Validated locally, never transmitted.</div>
+              </div>
+              <span class="evm-badge evm-badge--{{ seedTone }}"><span class="evm-badge__dot"></span>{{ seedStatus }}</span>
+            </div>
+            <div class="evm-card-body" style="display:flex;flex-direction:column;gap:12px">
+              <textarea class="evm-textarea" rows="3" ref="{{ mnemonicRef }}" value="{{ selMnemonic }}" onChange="{{ onMnemonicChange }}" placeholder="type or paste the words…" spellCheck="false" autoCapitalize="off" autoCorrect="off" style="font-family:var(--evm-font-mono);font-size:var(--evm-text-body);line-height:1.7"></textarea>
+
+              <sc-if value="{{ hasSuggestions }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <span style="font-size:var(--evm-text-xs);color:var(--evm-text-4)">complete:</span>
+                  <sc-for list="{{ suggestions }}" as="sug" hint-placeholder-count="0">
+                    <button onClick="{{ sug.onPick }}" class="evm-badge evm-badge--accent" style="border:none;cursor:pointer;font-family:var(--evm-font-mono);font-size:var(--evm-text-sm);padding:3px 9px" style-hover="filter:brightness(1.25)">{{ sug.word }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ hasChips }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="0">
+                    <span class="evm-badge evm-badge--{{ chip.tone }}" style="font-family:var(--evm-font-mono);font-size:var(--evm-text-sm);gap:5px"><span style="opacity:0.45">{{ chip.n }}</span>{{ chip.word }}</span>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ hasSeedMessage }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:var(--evm-text-sm);color:{{ seedMessageColor }}">{{ seedMessage }}</div>
+              </sc-if>
+
+              <div class="evm-field" style="max-width:420px">
+                <label class="evm-field-label">BIP39 passphrase <span style="color:var(--evm-text-4);font-weight:var(--evm-weight-normal)">(optional 25th word)</span></label>
+                <input class="evm-input evm-input--mono" type="text" value="{{ selPassphrase }}" onChange="{{ onPassphraseChange }}" placeholder="leave empty if none" spellCheck="false" autoCapitalize="off">
+                <div class="evm-field-hint">Changes every derived address. Included in the encrypted file so the backup is complete.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Derived address sections (one per asset type) -->
+          <sc-for list="{{ derivSections }}" as="sec" hint-placeholder-count="0">
+            <div class="evm-card">
+              <div class="evm-card-header">
+                <div>
+                  <h3 class="evm-card-title">Derived addresses</h3>
+                  <div class="evm-card-subtitle">Compare with your wallet — a match proves the phrase was entered correctly.</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <select class="evm-select" style="width:auto;padding-right:32px" value="{{ sec.chain }}" onChange="{{ sec.onChainChange }}">
+                    <option value="btc-segwit">Bitcoin — Native SegWit (BIP84)</option>
+                    <option value="btc-legacy">Bitcoin — Legacy (BIP44)</option>
+                    <option value="eth">Ethereum</option>
+                    <option value="sol">Solana</option>
+                    <option value="tron">Tron</option>
+                  </select>
+                  <input class="evm-input" type="number" min="1" max="50" value="{{ sec.count }}" onChange="{{ sec.onCountChange }}" style="width:72px" title="number of addresses (1–50)">
+                  <sc-if value="{{ sec.removable }}" hint-placeholder-val="{{ false }}">
+                    <button class="evm-btn evm-btn--ghost evm-btn--sm" onClick="{{ sec.onRemove }}" title="Remove this asset type" style="color:var(--evm-text-3)">✕</button>
+                  </sc-if>
+                </div>
+              </div>
+              <div class="evm-card-body">
+                <sc-if value="{{ sec.showAddresses }}" hint-placeholder-val="{{ false }}">
+                  <div class="evm-table-wrap">
+                    <table class="evm-table evm-table--zebra">
+                      <thead><tr><th style="width:32px">#</th><th style="width:130px">Path</th><th style="width:1%">Address</th><th>Description</th><th style="width:52px"></th></tr></thead>
+                      <tbody>
+                        <sc-for list="{{ sec.rows }}" as="row" hint-placeholder-count="0">
+                          <tr>
+                            <td style="font-family:var(--evm-font-mono);color:var(--evm-text-3)">{{ row.index }}</td>
+                            <td style="font-family:var(--evm-font-mono);font-size:var(--evm-text-sm);color:var(--evm-text-3);white-space:nowrap">{{ row.path }}</td>
+                            <td style="font-family:var(--evm-font-mono);font-size:var(--evm-text-sm);white-space:nowrap">{{ row.address }}</td>
+                            <td><input class="evm-input" value="{{ row.desc }}" onChange="{{ row.onDescChange }}" placeholder="optional" spellCheck="false" style="padding:4px 8px;font-size:var(--evm-text-sm);background:transparent;border-color:transparent" style-focus="background:var(--evm-surface-2);border-color:var(--evm-border-strong)" style-hover="border-color:var(--evm-border)"></td>
+                            <td style="text-align:right"><button class="evm-btn evm-btn--ghost evm-btn--sm" onClick="{{ row.onCopy }}">{{ row.copyLabel }}</button></td>
+                          </tr>
+                        </sc-for>
+                      </tbody>
+                    </table>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ sec.showDeriving }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:10px;padding:18px 4px;color:var(--evm-text-3);font-size:var(--evm-text-sm)">
+                    <span style="width:14px;height:14px;border-radius:50%;border:2px solid var(--evm-border-strong);border-top-color:var(--evm-accent);animation:evm-spin 0.7s linear infinite;display:inline-block"></span>
+                    deriving addresses…
+                  </div>
+                </sc-if>
+                <sc-if value="{{ sec.showNoDerive }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:18px 4px;color:var(--evm-text-4);font-size:var(--evm-text-sm)">Enter a valid seed phrase above to derive addresses.</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+          <div>
+            <button class="evm-btn evm-btn--secondary evm-btn--sm" onClick="{{ addDerivSection }}">+ Add another asset type</button>
+          </div>
+
+          <!-- Notes card -->
+          <div class="evm-card">
+            <div class="evm-card-header">
+              <div>
+                <h3 class="evm-card-title">Notes</h3>
+                <div class="evm-card-subtitle">Freeform — where it's stored, which wallets use it, what's on it.</div>
+              </div>
+            </div>
+            <div class="evm-card-body">
+              <textarea class="evm-textarea" rows="5" value="{{ selNote }}" onChange="{{ onNoteChange }}" placeholder="e.g. Metal plate in the safe. Used by the family multisig (key 2 of 3). Holds ~0.4 BTC as of 2026."></textarea>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isNote }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:flex-end;gap:12px">
+            <div class="evm-field" style="flex:1">
+              <label class="evm-field-label">Section title</label>
+              <input class="evm-input" value="{{ selLabel }}" onChange="{{ onLabelChange }}" placeholder="e.g. Exchange accounts / 2FA recovery codes" spellCheck="false">
+            </div>
+            <button class="evm-btn evm-btn--ghost" onClick="{{ onDelete }}" style="color:{{ deleteColor }}">{{ deleteText }}</button>
+          </div>
+          <div class="evm-card">
+            <div class="evm-card-header">
+              <div>
+                <h3 class="evm-card-title">Text</h3>
+                <div class="evm-card-subtitle">A section with no seed phrase — goes into the encrypted file as-is.</div>
+              </div>
+            </div>
+            <div class="evm-card-body">
+              <textarea class="evm-textarea" rows="14" value="{{ selNote }}" onChange="{{ onNoteChange }}" placeholder="Anything else that belongs in the backup…"></textarea>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Status bar ============ -->
+  <div style="display:flex;align-items:center;gap:20px;padding:6px 16px;border-top:1px solid var(--evm-border);background:var(--evm-surface-1);font-size:var(--evm-text-xs);color:var(--evm-text-3);flex:none">
+    <span>Seeds <span style="font-family:var(--evm-font-mono);color:var(--evm-text-2)">{{ seedCount }}</span></span>
+    <span>Valid <span style="font-family:var(--evm-font-mono);color:{{ validCountColor }}">{{ validCount }}</span></span>
+    <span>Text sections <span style="font-family:var(--evm-font-mono);color:var(--evm-text-2)">{{ noteCount }}</span></span>
+    <div style="flex:1"></div>
+    <span style="color:var(--evm-accent)">BIP39 wordlist · SHA-256 verified</span>
+    <span>no network · no temp files · in-memory only</span>
+  </div>
+
+  <!-- ============ Export modal ============ -->
+  <sc-if value="{{ exportOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="evm-modal-overlay" onClick="{{ closeExport }}" data-screen-label="Encrypt and export">
+      <div class="evm-modal" onClick="{{ stopClick }}" style="width:660px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column">
+        <div class="evm-modal-header">
+          <h2 class="evm-modal-title">Encrypt &amp; export</h2>
+          <button class="evm-modal-close" onClick="{{ closeExport }}">×</button>
+        </div>
+        <div class="evm-modal-body" style="display:flex;flex-direction:column;gap:14px">
+
+          <sc-if value="{{ exportBlocked }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:10px 12px;border-radius:var(--evm-radius-md);background:var(--evm-danger-faint);color:var(--evm-danger);font-size:var(--evm-text-sm)">{{ exportBlockedMsg }}</div>
+          </sc-if>
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between">
+              <span class="evm-field-label">Plaintext preview — <span style="font-family:var(--evm-font-mono)">seeds.md</span></span>
+              <span style="font-size:var(--evm-text-xs);color:var(--evm-text-4);font-family:var(--evm-font-mono)">{{ exportSize }}</span>
+            </div>
+            <pre style="margin:0;background:var(--evm-surface-2);border:1px solid var(--evm-border);border-radius:var(--evm-radius-md);padding:12px 14px;font-family:var(--evm-font-mono);font-size:var(--evm-text-xs);line-height:1.55;color:var(--evm-text-2);max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-word">{{ exportPreview }}</pre>
+          </div>
+
+          <div style="display:flex;gap:12px">
+            <div class="evm-field" style="flex:1">
+              <label class="evm-field-label">Encryption passphrase</label>
+              <input class="evm-input evm-input--mono" type="password" value="{{ exportPass }}" onChange="{{ onExportPass }}" placeholder="min 8 characters">
+            </div>
+            <div class="evm-field" style="flex:1">
+              <label class="evm-field-label">Repeat passphrase</label>
+              <input class="evm-input evm-input--mono {{ passMatchClass }}" type="password" value="{{ exportPass2 }}" onChange="{{ onExportPass2 }}" placeholder="type it again">
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="flex:1;display:flex;gap:4px">
+              <sc-for list="{{ strengthSegs }}" as="seg" hint-placeholder-count="0">
+                <div style="flex:1;height:4px;border-radius:2px;background:{{ seg.color }}"></div>
+              </sc-for>
+            </div>
+            <span style="font-size:var(--evm-text-xs);color:{{ strengthColor }};width:110px;text-align:right">{{ strengthLabel }}</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span class="evm-field-label">To decrypt later — any machine with OpenSSL</span>
+            <div style="display:flex;align-items:center;gap:8px;background:var(--evm-surface-2);border:1px solid var(--evm-border);border-radius:var(--evm-radius-md);padding:9px 12px">
+              <code style="flex:1;font-family:var(--evm-font-mono);font-size:var(--evm-text-xs);color:var(--evm-text-1);word-break:break-all">{{ decryptCmd }}</code>
+              <button class="evm-btn evm-btn--ghost evm-btn--sm" onClick="{{ copyDecryptCmd }}">{{ decryptCopyLabel }}</button>
+            </div>
+            <div class="evm-field-hint">Encryption is AES-256-CBC with PBKDF2 ({{ kdfIterLabel }} iterations, SHA-256) — byte-identical to <span style="font-family:var(--evm-font-mono)">openssl enc -aes-256-cbc -pbkdf2 -iter {{ kdfIterLabel }} -salt</span>.</div>
+          </div>
+
+          <sc-if value="{{ exportDone }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:10px 12px;border-radius:var(--evm-radius-md);background:var(--evm-success-faint);color:var(--evm-success);font-size:var(--evm-text-sm)">{{ exportDoneMsg }}</div>
+          </sc-if>
+        </div>
+        <div class="evm-modal-footer">
+          <button class="evm-btn evm-btn--ghost" onClick="{{ closeExport }}">Cancel</button>
+          <button class="evm-btn evm-btn--primary" onClick="{{ onEncrypt }}" disabled="{{ encryptDisabled }}">{{ encryptLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultChain&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;btc-segwit&quot;, &quot;btc-legacy&quot;, &quot;eth&quot;, &quot;sol&quot;, &quot;tron&quot;], &quot;default&quot;: &quot;btc-segwit&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Derivation&quot;}, &quot;defaultAddressCount&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 10, &quot;min&quot;: 1, &quot;max&quot;: 50, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Derivation&quot;}, &quot;kdfIterations&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 100000, &quot;min&quot;: 10000, &quot;max&quot;: 1000000, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Encryption&quot;}}">
+class Component extends DCLogic {
+  state = {
+    entries: [],
+    selectedId: null,
+    seq: 1,
+    confirmDeleteId: null,
+    copiedKey: null,
+    exportOpen: false,
+    exportPass: '',
+    exportPass2: '',
+    exportBusy: false,
+    exportDone: null,
+  };
+
+  constructor(props) {
+    super(props);
+    this.mnemonicRef = React.createRef();
+    this._deriveTimers = {};
+    this._deriveTokens = {};
+  }
+
+  // ---------- helpers ----------
+  sel() {
+    return this.state.entries.find((e) => e.id === this.state.selectedId) || null;
+  }
+  updateEntry(id, patch) {
+    this.setState((s) => ({
+      entries: s.entries.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+    }));
+  }
+  chainKey() { return this.props.defaultChain ?? 'btc-segwit'; }
+  countDefault() { return this.props.defaultAddressCount ?? 10; }
+  kdfIter() { return this.props.kdfIterations ?? 100000; }
+
+  newDeriv(chain) {
+    this._dseq = (this._dseq || 0) + 1;
+    return { id: 'd' + Date.now() + '_' + this._dseq, chain: chain || this.chainKey(), count: this.countDefault(), addresses: null, deriving: false };
+  }
+
+  // read derivation sections, migrating entries created before multi-section support
+  derivsOf(e) {
+    if (e.derivations) return e.derivations;
+    return [{ id: 'legacy' + e.id, chain: e.chain || this.chainKey(), count: e.count || this.countDefault(), addresses: e.addresses || null, deriving: false }];
+  }
+
+  updateDeriv(entryId, derivId, patch) {
+    this.setState((s) => ({
+      entries: s.entries.map((e) => {
+        if (e.id !== entryId) return e;
+        const list = this.derivsOf(e).map((d) => (d.id === derivId ? { ...d, ...patch } : d));
+        return { ...e, derivations: list };
+      }),
+    }));
+  }
+
+  addEntry(kind) {
+    const id = this.state.seq;
+    const entry = {
+      id, kind,
+      label: kind === 'seed' ? 'Untitled seed ' + id : 'Untitled section ' + id,
+      mnemonic: '', passphrase: '', note: '',
+      validation: null,
+      derivations: kind === 'seed' ? [this.newDeriv()] : [],
+    };
+    this.setState((s) => ({ entries: [...s.entries, entry], seq: s.seq + 1, selectedId: id, confirmDeleteId: null }));
+  }
+
+  scheduleDerive(id, delay) {
+    clearTimeout(this._deriveTimers[id]);
+    this._deriveTimers[id] = setTimeout(() => this.runDerive(id), delay ?? 400);
+  }
+
+  async runDerive(id) {
+    const entry = this.state.entries.find((e) => e.id === id);
+    if (!entry) return;
+    const token = (this._deriveTokens[id] = (this._deriveTokens[id] || 0) + 1);
+    const v = await SeedCrypto.validateMnemonic(entry.mnemonic);
+    if (this._deriveTokens[id] !== token) return;
+    const sections = this.derivsOf(entry);
+    if (!v.ok) {
+      this.updateEntry(id, { validation: v, derivations: sections.map((d) => ({ ...d, addresses: null, deriving: false })) });
+      return;
+    }
+    this.updateEntry(id, { validation: v, derivations: sections.map((d) => ({ ...d, deriving: true })) });
+    try {
+      const seed = await SeedCrypto.mnemonicToSeed(entry.mnemonic, entry.passphrase);
+      for (const d of sections) {
+        const count = Math.min(50, Math.max(1, parseInt(d.count, 10) || 10));
+        const addrs = await SeedCrypto.deriveAddresses(seed, d.chain, count);
+        if (this._deriveTokens[id] !== token) return;
+        this.updateDeriv(id, d.id, { addresses: addrs, deriving: false });
+      }
+    } catch (err) {
+      if (this._deriveTokens[id] !== token) return;
+      const cur = this.state.entries.find((e) => e.id === id);
+      if (cur) this.updateEntry(id, { derivations: this.derivsOf(cur).map((d) => (d.deriving ? { ...d, addresses: null, deriving: false } : d)) });
+      console.error(err);
+    }
+  }
+
+  flashCopied(key, text) {
+    navigator.clipboard && navigator.clipboard.writeText(text);
+    this.setState({ copiedKey: key });
+    clearTimeout(this._copyTimer);
+    this._copyTimer = setTimeout(() => this.setState({ copiedKey: null }), 1200);
+  }
+
+  chainName(key) { return SeedCrypto.CHAINS[key] ? SeedCrypto.CHAINS[key].name : key; }
+
+  buildMarkdown() {
+    const lines = [];
+    const today = new Date().toISOString().slice(0, 10);
+    lines.push('# Seed phrase backup');
+    lines.push('');
+    lines.push('Generated ' + today + ' with Seed Vault (fully offline). Every seed phrase below');
+    lines.push('passed BIP39 checksum validation, and the listed addresses were derived from it —');
+    lines.push('after restoring, compare addresses to confirm a correct recovery.');
+    lines.push('');
+    let n = 0;
+    for (const e of this.state.entries) {
+      n++;
+      lines.push('---');
+      lines.push('');
+      lines.push('## ' + n + '. ' + (e.label || 'Untitled'));
+      lines.push('');
+      if (e.kind === 'note') {
+        lines.push(e.note || '(empty)');
+        lines.push('');
+        continue;
+      }
+      const words = SeedCrypto.normalizeMnemonic(e.mnemonic);
+      lines.push('- Type: BIP39 seed phrase, ' + words.length + ' words (checksum valid)');
+      lines.push('- BIP39 passphrase: ' + (e.passphrase ? '`' + e.passphrase + '`' : 'none'));
+      lines.push('');
+      lines.push('Seed phrase:');
+      lines.push('');
+      // 4 words per line, numbered, in an indented code block
+      for (let i = 0; i < words.length; i += 4) {
+        const chunk = words.slice(i, i + 4).map((w, j) => String(i + j + 1).padStart(2, ' ') + '. ' + w.padEnd(10));
+        lines.push('    ' + chunk.join(' ').replace(/\s+$/, ''));
+      }
+      lines.push('');
+      if (e.note && e.note.trim()) {
+        lines.push('Notes:');
+        lines.push('');
+        lines.push(e.note.trim());
+        lines.push('');
+      }
+      for (const d of this.derivsOf(e)) {
+        if (!(d.addresses && d.addresses.length)) continue;
+        lines.push('First ' + d.addresses.length + ' addresses — ' + this.chainName(d.chain) + ':');
+        lines.push('');
+        for (const a of d.addresses) {
+          const desc = (d.descs || {})[a.index];
+          lines.push('    ' + a.path.padEnd(20) + ' ' + a.address + (desc && desc.trim() ? '  — ' + desc.trim() : ''));
+        }
+        lines.push('');
+      }
+    }
+    lines.push('---');
+    lines.push('');
+    lines.push('To re-encrypt after editing this file:');
+    lines.push('');
+    lines.push('    openssl enc -aes-256-cbc -pbkdf2 -iter ' + this.kdfIter() + ' -salt -in seeds.md -out seeds.md.enc');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  passStrength(pass) {
+    if (!pass) return 0;
+    let score = 0;
+    if (pass.length >= 8) score++;
+    if (pass.length >= 12) score++;
+    const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((r) => r.test(pass)).length;
+    if (classes >= 3) score++;
+    if (pass.length >= 16 && classes >= 3) score++;
+    return score; // 0..4
+  }
+
+  async doEncrypt() {
+    const { exportPass } = this.state;
+    this.setState({ exportBusy: true, exportDone: null });
+    try {
+      const md = this.buildMarkdown();
+      const bytes = await SeedCrypto.opensslEncrypt(md, exportPass, this.kdfIter());
+      const blob = new Blob([bytes], { type: 'application/octet-stream' });
+      let saved = 'downloaded';
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({ suggestedName: 'seeds.md.enc' });
+          const w = await handle.createWritable();
+          await w.write(blob);
+          await w.close();
+          saved = 'saved via file dialog';
+        } catch (err) {
+          if (err && err.name === 'AbortError') { this.setState({ exportBusy: false }); return; }
+          saved = this.anchorDownload(blob);
+        }
+      } else {
+        saved = this.anchorDownload(blob);
+      }
+      this.setState({
+        exportBusy: false,
+        exportDone: 'Encrypted ✓ — seeds.md.enc (' + bytes.length + ' bytes, ' + saved + '). Keep the passphrase in your head — without it the file is unreadable.',
+      });
+    } catch (err) {
+      console.error(err);
+      this.setState({ exportBusy: false, exportDone: 'Encryption failed: ' + err.message });
+    }
+  }
+
+  anchorDownload(blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'seeds.md.enc';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    return 'downloaded';
+  }
+
+  // ---------- render ----------
+  renderVals() {
+    const s = this.state;
+    const e = this.sel();
+    const seedEntries = s.entries.filter((x) => x.kind === 'seed');
+    const validSeeds = seedEntries.filter((x) => x.validation && x.validation.ok);
+
+    // sidebar
+    const sidebarItems = s.entries.map((x) => {
+      let tone = 'neutral', status = 'text section', meta = '';
+      if (x.kind === 'seed') {
+        const words = SeedCrypto.normalizeMnemonic(x.mnemonic);
+        meta = words.length ? words.length + ' words' : '';
+        if (!words.length) { tone = 'neutral'; status = 'empty'; }
+        else if (x.validation && x.validation.ok) { tone = 'success'; status = 'valid'; }
+        else if (x.validation && (x.validation.badWords.length || !x.validation.lengthOk)) { tone = 'danger'; status = 'invalid'; }
+        else if (x.validation && !x.validation.checksumOk) { tone = 'danger'; status = 'bad checksum'; }
+        else { tone = 'warning'; status = 'checking'; }
+        if (x.passphrase) meta += ' · +passphrase';
+      } else {
+        meta = (x.note || '').trim() ? (x.note.trim().split(/\s+/).length + ' words') : 'empty';
+      }
+      const selected = x.id === s.selectedId;
+      return {
+        label: x.label || 'Untitled',
+        tone, status, meta,
+        bg: selected ? 'var(--evm-surface-3)' : 'transparent',
+        border: selected ? 'var(--evm-border-strong)' : 'transparent',
+        onSelect: () => this.setState({ selectedId: x.id, confirmDeleteId: null }),
+      };
+    });
+
+    // selected seed derived view state
+    let seedTone = 'neutral', seedStatus = 'empty', seedMessage = '', seedMessageColor = 'var(--evm-text-3)';
+    let chips = [], suggestions = [];
+    if (e && e.kind === 'seed') {
+      const words = SeedCrypto.normalizeMnemonic(e.mnemonic);
+      const v = e.validation;
+      const badSet = new Set(v ? v.badWords : []);
+      chips = words.map((w, i) => ({
+        n: i + 1, word: w,
+        tone: badSet.has(i) ? 'danger' : (v && v.ok ? 'success' : 'neutral'),
+      }));
+      if (!words.length) { seedTone = 'neutral'; seedStatus = 'empty'; }
+      else if (v && v.ok) { seedTone = 'success'; seedStatus = 'checksum valid'; }
+      else if (v && v.badWords.length) {
+        seedTone = 'danger'; seedStatus = v.badWords.length + ' invalid word' + (v.badWords.length > 1 ? 's' : '');
+        seedMessage = 'Not in the BIP39 wordlist: ' + v.badWords.map((i) => '#' + (i + 1) + ' "' + words[i] + '"').join(', ') + '. Fix the highlighted words.';
+        seedMessageColor = 'var(--evm-danger)';
+      } else if (v && !v.lengthOk) {
+        seedTone = 'warning'; seedStatus = words.length + ' words';
+        seedMessage = 'A BIP39 phrase has 12, 15, 18, 21 or 24 words — currently ' + words.length + '.';
+        seedMessageColor = 'var(--evm-warning)';
+      } else if (v && !v.checksumOk) {
+        seedTone = 'danger'; seedStatus = 'bad checksum';
+        seedMessage = 'All words are valid but the checksum fails — a word is wrong or two are swapped. Re-check against your paper copy.';
+        seedMessageColor = 'var(--evm-danger)';
+      } else { seedTone = 'warning'; seedStatus = 'checking…'; }
+
+      // autocomplete on the last, still-being-typed token
+      const raw = e.mnemonic;
+      if (raw && !/\s$/.test(raw)) {
+        const last = SeedCrypto.normalizeMnemonic(raw).pop() || '';
+        if (last && !(SeedCrypto.suggest(last, 2).length === 1 && SeedCrypto.suggest(last, 2)[0] === last)) {
+          suggestions = SeedCrypto.suggest(last, 8)
+            .filter((w) => w !== last)
+            .map((word) => ({
+              word,
+              onPick: () => {
+                const next = raw.replace(/\S+$/, word) + ' ';
+                this.updateEntry(e.id, { mnemonic: next });
+                this.scheduleDerive(e.id, 50);
+                const ta = this.mnemonicRef.current;
+                if (ta) setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length; }, 0);
+              },
+            }));
+        }
+      }
+    }
+
+    const seedValid = !!(e && e.validation && e.validation.ok);
+    const derivSections = (e && e.kind === 'seed' ? this.derivsOf(e) : []).map((d, di, all) => ({
+      chain: d.chain,
+      count: d.count,
+      removable: all.length > 1,
+      showAddresses: !!(d.addresses && d.addresses.length && !d.deriving),
+      showDeriving: !!d.deriving,
+      showNoDerive: !d.deriving && !(d.addresses && d.addresses.length),
+      rows: (d.addresses || []).map((a) => ({
+        index: a.index,
+        path: a.path,
+        address: a.address,
+        desc: (d.descs || {})[a.index] || '',
+        onDescChange: (ev) => {
+          const cur = this.state.entries.find((x) => x.id === e.id);
+          const curD = cur && this.derivsOf(cur).find((y) => y.id === d.id);
+          this.updateDeriv(e.id, d.id, { descs: { ...((curD && curD.descs) || {}), [a.index]: ev.target.value } });
+        },
+        copyLabel: s.copiedKey === 'addr' + d.id + '_' + a.index ? '✓' : 'copy',
+        onCopy: () => this.flashCopied('addr' + d.id + '_' + a.index, a.address),
+      })),
+      onChainChange: (ev) => {
+        this.updateDeriv(e.id, d.id, { chain: ev.target.value, addresses: null });
+        this.scheduleDerive(e.id, 50);
+      },
+      onCountChange: (ev) => {
+        this.updateDeriv(e.id, d.id, { count: ev.target.value });
+        this.scheduleDerive(e.id, 600);
+      },
+      onRemove: () => {
+        this.setState((st) => ({
+          entries: st.entries.map((x) => (x.id === e.id ? { ...x, derivations: this.derivsOf(x).filter((y) => y.id !== d.id) } : x)),
+        }));
+      },
+    }));
+
+    // export
+    const exportPreview = s.exportOpen ? this.buildMarkdown() : '';
+    const invalidSeeds = seedEntries.filter((x) => !(x.validation && x.validation.ok));
+    const exportBlocked = s.exportOpen && (s.entries.length === 0 || invalidSeeds.length > 0);
+    const exportBlockedMsg = s.entries.length === 0
+      ? 'Nothing to export yet — add at least one seed phrase or text section.'
+      : 'Cannot export: ' + invalidSeeds.length + ' seed entr' + (invalidSeeds.length > 1 ? 'ies are' : 'y is') + ' not valid yet (' + invalidSeeds.map((x) => '"' + (x.label || 'Untitled') + '"').join(', ') + '). Fix or delete before encrypting.';
+    const strength = this.passStrength(s.exportPass);
+    const strengthColors = ['var(--evm-danger)', 'var(--evm-danger)', 'var(--evm-warning)', 'var(--evm-success)', 'var(--evm-accent)'];
+    const strengthLabels = ['', 'weak', 'fair', 'strong', 'very strong'];
+    const strengthSegs = [1, 2, 3, 4].map((i) => ({ color: strength >= i ? strengthColors[strength] : 'var(--evm-surface-3)' }));
+    const passOk = s.exportPass.length >= 8 && s.exportPass === s.exportPass2;
+    const decryptCmd = 'openssl enc -d -aes-256-cbc -pbkdf2 -iter ' + this.kdfIter() + ' -in seeds.md.enc -out seeds.md';
+
+    return {
+      // header / global
+      openExport: () => this.setState({ exportOpen: true, exportDone: null }),
+      addSeed: () => this.addEntry('seed'),
+      addNote: () => this.addEntry('note'),
+
+      // sidebar
+      entryCount: String(s.entries.length),
+      hasEntries: s.entries.length > 0,
+      noEntries: s.entries.length === 0,
+      sidebarItems,
+
+      // main pane switches
+      nothingSelected: !e,
+      isSeed: !!e && e.kind === 'seed',
+      isNote: !!e && e.kind === 'note',
+
+      // selected entry fields
+      selLabel: e ? e.label : '',
+      selMnemonic: e ? e.mnemonic : '',
+      selPassphrase: e ? e.passphrase : '',
+      selNote: e ? e.note : '',
+      mnemonicRef: this.mnemonicRef,
+
+      onLabelChange: (ev) => e && this.updateEntry(e.id, { label: ev.target.value }),
+      onMnemonicChange: (ev) => {
+        if (!e) return;
+        this.updateEntry(e.id, { mnemonic: ev.target.value });
+        this.scheduleDerive(e.id);
+      },
+      onPassphraseChange: (ev) => {
+        if (!e) return;
+        this.updateEntry(e.id, { passphrase: ev.target.value });
+        this.scheduleDerive(e.id, 600);
+      },
+      onNoteChange: (ev) => e && this.updateEntry(e.id, { note: ev.target.value }),
+
+      // delete (two-step)
+      deleteText: s.confirmDeleteId === (e && e.id) ? 'Really delete?' : 'Delete',
+      deleteColor: s.confirmDeleteId === (e && e.id) ? 'var(--evm-danger)' : 'var(--evm-text-3)',
+      onDelete: () => {
+        if (!e) return;
+        if (s.confirmDeleteId === e.id) {
+          this.setState((st) => ({
+            entries: st.entries.filter((x) => x.id !== e.id),
+            selectedId: null, confirmDeleteId: null,
+          }));
+        } else this.setState({ confirmDeleteId: e.id });
+      },
+
+      // seed validation view
+      seedTone, seedStatus,
+      hasSeedMessage: !!seedMessage,
+      seedMessage, seedMessageColor,
+      hasChips: chips.length > 0,
+      chips,
+      hasSuggestions: suggestions.length > 0,
+      suggestions,
+
+      // address sections
+      derivSections,
+      addDerivSection: () => {
+        if (!e) return;
+        const used = new Set(this.derivsOf(e).map((d) => d.chain));
+        const nextChain = Object.keys(SeedCrypto.CHAINS).find((c) => !used.has(c)) || this.chainKey();
+        this.setState((st) => ({
+          entries: st.entries.map((x) => (x.id === e.id ? { ...x, derivations: [...this.derivsOf(x), this.newDeriv(nextChain)] } : x)),
+        }), () => { if (seedValid) this.scheduleDerive(e.id, 50); });
+      },
+
+      // status bar
+      seedCount: String(seedEntries.length),
+      validCount: String(validSeeds.length),
+      validCountColor: seedEntries.length && validSeeds.length === seedEntries.length ? 'var(--evm-success)' : 'var(--evm-text-2)',
+      noteCount: String(s.entries.length - seedEntries.length),
+
+      // export modal
+      exportOpen: s.exportOpen,
+      closeExport: () => this.setState({ exportOpen: false }),
+      stopClick: (ev) => ev.stopPropagation(),
+      exportBlocked,
+      exportBlockedMsg,
+      exportPreview,
+      exportSize: exportPreview ? exportPreview.length + ' chars' : '',
+      exportPass: s.exportPass,
+      exportPass2: s.exportPass2,
+      onExportPass: (ev) => this.setState({ exportPass: ev.target.value, exportDone: null }),
+      onExportPass2: (ev) => this.setState({ exportPass2: ev.target.value, exportDone: null }),
+      passMatchClass: s.exportPass2 && s.exportPass2 !== s.exportPass ? 'evm-input--invalid' : '',
+      strengthSegs,
+      strengthColor: strengthColors[strength],
+      strengthLabel: s.exportPass ? (s.exportPass.length < 8 ? 'too short' : strengthLabels[strength]) : '',
+      decryptCmd,
+      copyDecryptCmd: () => this.flashCopied('cmd', decryptCmd),
+      decryptCopyLabel: s.copiedKey === 'cmd' ? '✓ copied' : 'copy',
+      kdfIterLabel: String(this.kdfIter()),
+      encryptDisabled: !passOk || exportBlocked || s.exportBusy,
+      encryptLabel: s.exportBusy ? 'Encrypting…' : 'Encrypt & save seeds.md.enc',
+      onEncrypt: () => this.doEncrypt(),
+      exportDone: !!s.exportDone,
+      exportDoneMsg: s.exportDone || '',
+    };
+  }
+}
+</script>
+</body>
+</html>
