@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   selfTest, validateMnemonic, mnemonicToSeed, deriveAddresses,
-  opensslEncrypt, opensslDecrypt, armor, dearmor, suggest, normalizeMnemonic,
+  opensslEncrypt, opensslDecrypt, armor, dearmor, asciify, suggest, normalizeMnemonic,
 } from '../dist/test/seedcrypto.mjs'
 import { buildMarkdown, decryptCommand } from '../dist/test/markdown.mjs'
 import { reorderEntries } from '../dist/test/types.mjs'
@@ -167,9 +167,11 @@ test('openssl CLI decrypts our output; we decrypt openssl output', async () => {
     ]).toString()
     assert.equal(decrypted, plaintext)
 
-    // the plaintext carries xpub + private keys for each derived address
-    assert.match(plaintext, /account xpub \(watch-only, finds all balances\): zpub6rFR7y4Q2Aij/)
+    // the plaintext carries xpub (on its own line) + private keys per address
+    assert.match(plaintext, /account xpub \(watch-only, finds all balances\):\n {4}zpub6rFR7y4Q2Aij/)
     assert.match(plaintext, /private key: KyZpNDKnfs94vbrwhJneDi77V6jF64PWPF8x5cdJb8ifgg2DUc9d/)
+    // the whole plaintext is 7-bit ASCII
+    for (const ch of plaintext) assert.ok(ch.charCodeAt(0) <= 127, 'non-ASCII in plaintext: ' + ch)
 
     // the file is printable ASCII with the comments on top
     assert.match(armored, /^# Generated 2026-07-07 17:49:01\n# To decrypt run: openssl enc -d/)
@@ -209,6 +211,52 @@ test('armor flattens newlines in comments so the header cannot be corrupted', as
   // every line is either a comment or base64
   for (const l of armored.trimEnd().split('\n')) assert.match(l, /^(#|[A-Za-z0-9+/=]+$)/)
   assert.equal(await opensslDecrypt(dearmor(armored), 'pw', 1000), 'x')
+})
+
+test('asciify transliterates typography and escapes the rest', () => {
+  assert.equal(asciify('a—b–c'), 'a--b-c')       // em/en dash
+  assert.equal(asciify('“q” ‘r’'), '"q" \'r\'') // smart quotes
+  assert.equal(asciify('x…y'), 'x...y')                // ellipsis
+  assert.equal(asciify('a b'), 'a b')                  // non-breaking space
+  assert.equal(asciify('café'), 'caf\\u00e9')          // accented -> escaped, lossless
+  assert.equal(asciify('\u{1f600}'), '\\u{1f600}')          // emoji -> escaped
+  assert.equal(asciify('plain ~!@#'), 'plain ~!@#')         // untouched
+})
+
+test('export markdown is pure 7-bit ASCII, escaping non-ASCII losslessly', () => {
+  const md = buildMarkdown([
+    { id: 1, kind: 'seed', label: 'Ledger — “cold”', mnemonic: VECTOR,
+      passphrase: 'café', note: 'stored in the café – top drawer',
+      validation: null, derivations: [] },
+    { id: 2, kind: 'note', label: 'Notes …', mnemonic: '', passphrase: '',
+      note: 'don’t lose this', validation: null, derivations: [] },
+  ])
+  for (const ch of md) assert.ok(ch.charCodeAt(0) <= 127, 'non-ASCII in output: ' + JSON.stringify(ch))
+  assert.match(md, /## 1\. Ledger -- "cold"/)          // label transliterated
+  assert.match(md, /stored in the caf\\u00e9 - top drawer/) // note asciified (accented escaped)
+  assert.match(md, /## 2\. Notes \.\.\./)
+  assert.match(md, /don't lose this/)
+  // a non-ASCII passphrase is escaped AND flagged so it can still be recovered
+  assert.match(md, /- BIP39 passphrase: `caf\\u00e9`  \(contains non-ASCII/)
+})
+
+test('an ASCII passphrase is shown plainly with no warning', () => {
+  const md = buildMarkdown([{ id: 1, kind: 'seed', label: 'x', mnemonic: VECTOR,
+    passphrase: 'hunter2!', note: '', validation: null, derivations: [] }])
+  assert.match(md, /- BIP39 passphrase: `hunter2!`\n/)
+  assert.doesNotMatch(md, /contains non-ASCII/)
+})
+
+test('chain names and xpub line are ASCII with the xpub on its own line', async () => {
+  const seed = mnemonicToSeed(VECTOR, '')
+  const md = buildMarkdown([{
+    id: 1, kind: 'seed', label: 'x', mnemonic: VECTOR, passphrase: '', note: '', validation: null,
+    derivations: [{ id: 'd1', chain: 'btc-segwit', count: '1', deriving: false, descs: {},
+      ...(await deriveAddresses(seed, 'btc-segwit', 1)) }],
+  }])
+  assert.match(md, /First 1 addresses -- Bitcoin -- Native SegWit \(BIP84\):/) // no em dash
+  assert.match(md, /account xpub \(watch-only, finds all balances\):\n {4}zpub6rFR7y4Q2Aij/)
+  for (const ch of md) assert.ok(ch.charCodeAt(0) <= 127)
 })
 
 test('reorderEntries moves an entry to an insertion point', () => {

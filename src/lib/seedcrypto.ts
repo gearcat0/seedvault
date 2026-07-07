@@ -24,6 +24,32 @@ const WORDLIST_SHA256 = '2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2e
 export const WORDS: readonly string[] = wordlist
 const WORDSET = new Set(wordlist)
 
+// Common typographic characters mapped to ASCII equivalents (dashes, smart
+// quotes, ellipsis, non-breaking/thin spaces, bullets). Anything not listed
+// here is escaped by asciify() instead.
+const ASCII_MAP: Record<string, string> = {
+  '‐': '-', '‑': '-', '‒': '-', '–': '-', // hyphen/figure/en dash
+  '—': '--', '―': '--', '−': '-',              // em dash / bar / minus
+  '‘': "'", '’': "'", '‚': "'", '‛': "'", // single quotes
+  '“': '"', '”': '"', '„': '"', '‟': '"', // double quotes
+  '…': '...',                                              // ellipsis
+  ' ': ' ', ' ': ' ', ' ': ' ', ' ': ' ', // non-breaking / thin spaces
+  '•': '*', '·': '.',                                // bullet / middle dot
+}
+
+/** Force a string to 7-bit ASCII: transliterate common typographic characters,
+    and escape anything else as `\uXXXX` (lossless — nothing is dropped). */
+export function asciify(text: string): string {
+  let out = ''
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!
+    if (code <= 0x7f) out += ch
+    else if (ASCII_MAP[ch] !== undefined) out += ASCII_MAP[ch]
+    else out += code <= 0xffff ? '\\u' + code.toString(16).padStart(4, '0') : '\\u{' + code.toString(16) + '}'
+  }
+  return out
+}
+
 const hex = (u8: Uint8Array) => Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('')
 const concat = (...arrs: Uint8Array[]) => {
   const out = new Uint8Array(arrs.reduce((a, b) => a + b.length, 0))
@@ -234,8 +260,9 @@ export function armor(bytes: Uint8Array, comments: string[]): string {
   }
   b64 = btoa(b64)
   // a newline inside a comment would end the `#` line and corrupt the base64
-  // block, so flatten any that sneak in (e.g. from a pasted envelope title)
-  const lines = comments.map((c) => '# ' + c.replace(/[\r\n]+/g, ' '))
+  // block, so flatten any that sneak in (e.g. from a pasted envelope title);
+  // asciify so the whole file stays 7-bit ASCII
+  const lines = comments.map((c) => '# ' + asciify(c.replace(/[\r\n]+/g, ' ')))
   for (let i = 0; i < b64.length; i += 64) lines.push(b64.slice(i, i + 64))
   return lines.join('\n') + '\n'
 }

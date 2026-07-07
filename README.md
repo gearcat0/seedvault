@@ -18,6 +18,12 @@ decrypting), followed by the base64-armored ciphertext — safe to print,
 paste, or archive anywhere. Entries can be reordered by dragging in the
 sidebar; the order becomes the section order in the backup.
 
+The decrypted `seeds.md` is pure 7-bit ASCII: typographic characters (em/en
+dashes, smart quotes, ellipses) are transliterated, and any other non-ASCII in
+a label/note/passphrase is escaped losslessly as `\uXXXX` (a non-ASCII
+passphrase is additionally flagged, since it must be restored as the original
+characters). Nothing is dropped.
+
 Each derivation section in the backup also carries every address's
 wallet-importable private key (WIF for Bitcoin, hex for Ethereum/Tron,
 Phantom-style base58 keypair for Solana) so a single account can be restored
