@@ -10,7 +10,7 @@ import {
   selfTest, validateMnemonic, mnemonicToSeed, deriveAddresses,
   opensslEncrypt, opensslDecrypt, armor, dearmor, suggest, normalizeMnemonic,
 } from '../dist/test/seedcrypto.mjs'
-import { buildMarkdown } from '../dist/test/markdown.mjs'
+import { buildMarkdown, decryptCommand } from '../dist/test/markdown.mjs'
 
 const VECTOR = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 
@@ -73,7 +73,7 @@ test('openssl CLI decrypts our output; we decrypt openssl output', async () => {
     const enc = await opensslEncrypt(plaintext, pass, 100000)
     const armored = armor(enc, [
       'Generated 2026-07-07 17:49:01',
-      'To decrypt run: openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in seeds.md.enc | more',
+      'To decrypt run: ' + decryptCommand('seeds.md.enc'),
     ])
     const encPath = join(dir, 'seeds.md.enc')
     writeFileSync(encPath, armored)
@@ -103,6 +103,15 @@ test('openssl CLI decrypts our output; we decrypt openssl output', async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('decrypt command names the saved file, quoted when needed', () => {
+  assert.equal(decryptCommand('seeds.md.enc'),
+    'openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in seeds.md.enc | more')
+  assert.equal(decryptCommand('family backup 2026.enc'),
+    "openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in 'family backup 2026.enc' | more")
+  assert.equal(decryptCommand("bob's.enc"),
+    "openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in 'bob'\\''s.enc' | more")
 })
 
 test('markdown export format', () => {

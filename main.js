@@ -66,22 +66,35 @@ app.on('window-all-closed', () => app.quit())
 // Renderer tells us whether closing would lose data.
 ipcMain.on('set-has-entries', (_e, v) => { hasEntries = !!v })
 
-// Save the ciphertext (and nothing else) through the OS save dialog.
-// Accepts only armored OpenSSL output: optional `#` comment lines, then
-// base64 whose first bytes decode to the "Salted__" magic ("U2FsdGVk").
-ipcMain.handle('save-encrypted', async (e, bytes) => {
-  const text = bytes instanceof Uint8Array ? Buffer.from(bytes).toString('latin1') : ''
-  if (!/^(#[^\n]*\n)*U2FsdGVk/.test(text)) {
-    throw new Error('refusing to write: not an OpenSSL-encrypted payload')
-  }
+// Saving is two steps so the renderer can put the chosen file name into the
+// armor's comment header: pick the destination first, then write. The
+// renderer never supplies a path — only the path chosen here is written to.
+let pendingSavePath = null
+
+ipcMain.handle('choose-save-path', async (e) => {
   const win = BrowserWindow.fromWebContents(e.sender)
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     defaultPath: 'seeds.md.enc',
     filters: [{ name: 'Encrypted backup', extensions: ['enc'] }],
   })
   if (canceled || !filePath) return { canceled: true }
-  await fs.writeFile(filePath, Buffer.from(bytes))
-  return { canceled: false, path: filePath, bytes: bytes.length }
+  pendingSavePath = filePath
+  return { canceled: false, name: path.basename(filePath) }
+})
+
+// Write the ciphertext (and nothing else) to the previously chosen path.
+// Accepts only armored OpenSSL output: optional `#` comment lines, then
+// base64 whose first bytes decode to the "Salted__" magic ("U2FsdGVk").
+ipcMain.handle('save-encrypted', async (_e, bytes) => {
+  const text = bytes instanceof Uint8Array ? Buffer.from(bytes).toString('latin1') : ''
+  if (!/^(#[^\n]*\n)*U2FsdGVk/.test(text)) {
+    throw new Error('refusing to write: not an OpenSSL-encrypted payload')
+  }
+  if (!pendingSavePath) throw new Error('no destination chosen')
+  const target = pendingSavePath
+  pendingSavePath = null
+  await fs.writeFile(target, Buffer.from(bytes))
+  return { canceled: false, path: target, bytes: bytes.length }
 })
 
 // Copy to clipboard; auto-clear after 30s unless the user copied something else since.

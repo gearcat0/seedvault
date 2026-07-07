@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Button, Field, Input, Modal } from 'evm-ui'
 import { armor, opensslEncrypt } from '../lib/seedcrypto'
-import { buildMarkdown, KDF_ITERATIONS } from '../lib/markdown'
+import { buildMarkdown, decryptCommand, KDF_ITERATIONS } from '../lib/markdown'
 import type { Entry } from '../lib/types'
 
 function passStrength(pass: string): number {
@@ -41,19 +41,22 @@ export function ExportModal({ open, entries, copiedKey, onCopy, onClose }: {
 
   const strength = passStrength(pass)
   const passOk = pass.length >= 8 && pass === pass2
-  const decryptCmd = `openssl enc -d -aes-256-cbc -pbkdf2 -iter ${KDF_ITERATIONS} -a -in seeds.md.enc | more`
+  const decryptCmd = decryptCommand('seeds.md.enc')
 
   const doEncrypt = async () => {
     setBusy(true)
     setDone(null)
     try {
       const ct = await opensslEncrypt(buildMarkdown(entries), pass, KDF_ITERATIONS)
+      if (!window.seedvault) throw new Error('save bridge unavailable')
+      // Pick the destination first so the comment header names the real file.
+      const choice = await window.seedvault.chooseSavePath()
+      if (choice.canceled || !choice.name) { setBusy(false); return }
       const d = new Date()
       const p = (n: number) => String(n).padStart(2, '0')
       const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-      const armored = armor(ct, [`Generated ${stamp}`, `To decrypt run: ${decryptCmd}`])
+      const armored = armor(ct, [`Generated ${stamp}`, `To decrypt run: ${decryptCommand(choice.name)}`])
       const bytes = new TextEncoder().encode(armored)
-      if (!window.seedvault) throw new Error('save bridge unavailable')
       const res = await window.seedvault.saveEncrypted(bytes)
       setBusy(false)
       if (res.canceled) return

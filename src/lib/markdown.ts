@@ -3,6 +3,12 @@ import type { Entry } from './types'
 
 export const KDF_ITERATIONS = 100000
 
+/** The decrypt command for a given saved file name, shell-quoted if needed. */
+export function decryptCommand(fileName: string, kdfIter = KDF_ITERATIONS): string {
+  const quoted = /^[\w.@-]+$/.test(fileName) ? fileName : `'${fileName.replace(/'/g, `'\\''`)}'`
+  return `openssl enc -d -aes-256-cbc -pbkdf2 -iter ${kdfIter} -a -in ${quoted} | more`
+}
+
 /** Build the seeds.md plaintext exactly as specified in the handoff. */
 export function buildMarkdown(entries: Entry[], kdfIter = KDF_ITERATIONS): string {
   const lines: string[] = []
