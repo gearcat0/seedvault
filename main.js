@@ -9,6 +9,8 @@ const path = require('path')
 // The app loads only local files; kill every other protocol at the network layer.
 const ALLOWED_URL = /^(file:|devtools:|chrome-extension:|about:blank)/
 
+const { DEFAULT_ZOOM, attachZoomControls } = require('./zoom')
+
 let hasEntries = false
 let clipboardTimer = null
 
@@ -25,9 +27,11 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       spellcheck: false,
+      zoomFactor: DEFAULT_ZOOM,
     },
   })
   win.removeMenu()
+  attachZoomControls(win)
   win.loadFile('index.html')
 
   win.on('close', (e) => {
