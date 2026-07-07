@@ -15,11 +15,12 @@ let hasEntries = false
 let clipboardTimer = null
 
 function createWindow() {
+  // scale the window with the platform zoom so 2× content gets 2× the frame
   const win = new BrowserWindow({
-    width: 1280,
-    height: 860,
-    minWidth: 900,
-    minHeight: 600,
+    width: 1280 * DEFAULT_ZOOM,
+    height: 860 * DEFAULT_ZOOM,
+    minWidth: 900 * DEFAULT_ZOOM,
+    minHeight: 600 * DEFAULT_ZOOM,
     backgroundColor: '#08080a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
