@@ -2,7 +2,7 @@
 
 Desktop app (Electron) for backing up BIP39 seed phrases. Each phrase is
 validated offline (wordlist + checksum), real addresses are derived for
-Bitcoin (SegWit/Legacy), Ethereum, Solana and Tron so you can compare against
+Bitcoin (Native SegWit / Nested-SegWit-P2SH / Legacy), Ethereum, Solana and Tron so you can compare against
 your wallet and catch transcription errors, and everything is encrypted into a
 single `seeds.md.enc` file that any machine with OpenSSL can decrypt:
 

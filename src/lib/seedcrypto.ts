@@ -134,6 +134,14 @@ function btcSegwitAddress(pub33: Uint8Array): string {
   return bech32.encode('bc', [0, ...bech32.toWords(h160)])
 }
 
+// P2SH-wrapped SegWit (BIP49): pay-to-script-hash of the P2WPKH redeem script
+// `OP_0 <20-byte pubkey hash>`. Yields a mainnet "3…" address.
+function btcNestedAddress(pub33: Uint8Array): string {
+  const redeem = concat(new Uint8Array([0x00, 0x14]), ripemd160(sha256(pub33)))
+  const scriptHash = ripemd160(sha256(redeem))
+  return base58check.encode(concat(new Uint8Array([0x05]), scriptHash))
+}
+
 function ethAddress(pub64: Uint8Array): string {
   const raw = hex(keccak_256(pub64).slice(12))
   const h = hex(keccak_256(te.encode(raw)))
@@ -148,10 +156,11 @@ function tronAddress(pub64: Uint8Array): string {
 
 // ---------- chains & derivation ----------
 
-export type ChainKey = 'btc-segwit' | 'btc-legacy' | 'eth' | 'sol' | 'tron'
+export type ChainKey = 'btc-segwit' | 'btc-nested' | 'btc-legacy' | 'eth' | 'sol' | 'tron'
 
 export const CHAINS: Record<ChainKey, { name: string; pathLabel: (i: number) => string }> = {
   'btc-segwit': { name: 'Bitcoin — Native SegWit (BIP84)', pathLabel: (i) => `m/84'/0'/0'/0/${i}` },
+  'btc-nested': { name: 'Bitcoin — Nested SegWit / P2SH (BIP49)', pathLabel: (i) => `m/49'/0'/0'/0/${i}` },
   'btc-legacy': { name: 'Bitcoin — Legacy (BIP44)', pathLabel: (i) => `m/44'/0'/0'/0/${i}` },
   eth: { name: 'Ethereum (BIP44)', pathLabel: (i) => `m/44'/60'/0'/0/${i}` },
   sol: { name: 'Solana (BIP44 / ed25519)', pathLabel: (i) => `m/44'/501'/${i}'/0'` },
@@ -175,8 +184,10 @@ export interface AccountDerivation {
   addresses: DerivedAddress[]
 }
 
-// BIP84 mainnet zprv/zpub version bytes; BIP44 uses scure's xprv/xpub default.
+// SLIP-0132 extended-key version bytes: BIP84 zprv/zpub, BIP49 yprv/ypub.
+// BIP44 uses scure's xprv/xpub default.
 const ZPRV_ZPUB = { private: 0x04b2430c, public: 0x04b24746 }
+const YPRV_YPUB = { private: 0x049d7878, public: 0x049d7cb2 }
 
 /** WIF for a compressed-pubkey private key (mainnet). */
 const toWif = (key: Uint8Array) =>
@@ -205,9 +216,10 @@ export async function deriveAddresses(
     }
     return { xpub: null, addresses }
   }
-  const purpose = chain === 'btc-segwit' ? 84 : 44
+  const purpose = chain === 'btc-segwit' ? 84 : chain === 'btc-nested' ? 49 : 44
   const coin = chain === 'eth' ? 60 : chain === 'tron' ? 195 : 0
-  const master = HDKey.fromMasterSeed(seed, chain === 'btc-segwit' ? ZPRV_ZPUB : undefined)
+  const versions = chain === 'btc-segwit' ? ZPRV_ZPUB : chain === 'btc-nested' ? YPRV_YPUB : undefined
+  const master = HDKey.fromMasterSeed(seed, versions)
   const acct = master.derive(`m/${purpose}'/${coin}'/0'`)
   const external = acct.deriveChild(0)
   for (let i = 0; i < count; i++) {
@@ -215,8 +227,10 @@ export async function deriveAddresses(
     const pub33 = node.publicKey!
     const key = node.privateKey!
     let address: string, priv: string
-    if (chain === 'btc-segwit' || chain === 'btc-legacy') {
-      address = chain === 'btc-segwit' ? btcSegwitAddress(pub33) : btcLegacyAddress(pub33)
+    if (chain === 'btc-segwit' || chain === 'btc-nested' || chain === 'btc-legacy') {
+      address = chain === 'btc-segwit' ? btcSegwitAddress(pub33)
+        : chain === 'btc-nested' ? btcNestedAddress(pub33)
+        : btcLegacyAddress(pub33)
       priv = toWif(key)
     } else {
       const pub64 = secp256k1.ProjectivePoint.fromHex(pub33).toRawBytes(false).slice(1)
@@ -300,6 +314,10 @@ export async function selfTest(): Promise<Record<string, boolean>> {
   // BIP84 spec test vectors for the same mnemonic: account zpub + first WIF
   r.btcZpub = segwit.xpub === 'zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs'
   r.btcWif = segwit.addresses[0].priv === 'KyZpNDKnfs94vbrwhJneDi77V6jF64PWPF8x5cdJb8ifgg2DUc9d'
+  // BIP49 (P2SH-wrapped SegWit, "3…"): canonical address + account ypub
+  const nested = await deriveAddresses(seed, 'btc-nested', 1)
+  r.btcNested = nested.addresses[0].address === '37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf'
+  r.btcYpub = nested.xpub === 'ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNB6VvmSEgytSER9azLDWCxoJwW7Ke7icmizBMXrzBx9979FfaHxHcrArf3zbeJJJUZPf663zsP'
   r.eth = (await deriveAddresses(seed, 'eth', 1)).addresses[0].address === '0x9858EfFD232B4033E47d90003D41EC34EcaEda94'
   // SLIP-0010 ed25519 test vector 1, chain m/0'
   const s10 = slip10Path(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]), [H + 0])

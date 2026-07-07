@@ -34,10 +34,11 @@ test('validation failure modes are distinguished', () => {
   assert.equal(validateMnemonic('  ' + VECTOR.toUpperCase().replace(/ /g, '\n') + '  ').ok, true)
 })
 
-test('derivation matches wallets for all five chains', async () => {
+test('derivation matches wallets for all six chains', async () => {
   const seed = mnemonicToSeed(VECTOR, '')
   const one = async (chain) => (await deriveAddresses(seed, chain, 1)).addresses[0].address
   assert.equal(await one('btc-segwit'), 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu') // BIP84 vector
+  assert.equal(await one('btc-nested'), '37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf') // BIP49 vector ("3…")
   assert.equal(await one('btc-legacy'), '1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA') // BIP44 vector
   assert.equal(await one('eth'), '0x9858EfFD232B4033E47d90003D41EC34EcaEda94') // MEW/Ledger
   assert.equal(await one('sol'), 'HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk') // Phantom m/44'/501'/0'/0'
@@ -45,6 +46,9 @@ test('derivation matches wallets for all five chains', async () => {
   const segwit = await deriveAddresses(seed, 'btc-segwit', 3)
   assert.equal(segwit.addresses[2].address, 'bc1qp59yckz4ae5c4efgw2s5wfyvrz0ala7rgvuz8z') // BIP84 index 2
   for (const a of segwit.addresses) assert.equal(a.address.length, 42)
+  // BIP49 addresses are P2SH — all start with "3"
+  const nested = await deriveAddresses(seed, 'btc-nested', 3)
+  for (const a of nested.addresses) assert.match(a.address, /^3/)
 })
 
 test('BIP39 passphrase changes addresses', async () => {
@@ -78,6 +82,16 @@ test('private keys independently re-derive their own addresses', async () => {
     const key = b58c.decode(legacy.priv).slice(1, 33)
     const pub = secp256k1.getPublicKey(key, true)
     assert.equal(b58c.encode(new Uint8Array([0, ...ripemd160(sha256(pub))])), legacy.address)
+  }
+
+  // BIP49 P2SH: WIF → pubkey → hash160 → redeem script → scripthash → "3…"
+  const nested = await deriveAddresses(seed, 'btc-nested', 2)
+  assert.equal(nested.addresses[0].address, '37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf')
+  for (const a of nested.addresses) {
+    const key = b58c.decode(a.priv).slice(1, 33)
+    const pub = secp256k1.getPublicKey(key, true)
+    const redeem = new Uint8Array([0x00, 0x14, ...ripemd160(sha256(pub))])
+    assert.equal(b58c.encode(new Uint8Array([0x05, ...ripemd160(sha256(redeem))])), a.address)
   }
 
   // Ethereum: 0x-hex key → keccak(pubkey)[12:] must equal the address
@@ -129,6 +143,16 @@ test('account xpub alone reproduces the addresses (watch-only)', async () => {
   for (const a of legacy.addresses) {
     const pub = watchL.deriveChild(0).deriveChild(a.index).publicKey
     assert.equal(b58c.encode(new Uint8Array([0, ...ripemd160(sha256(pub))])), a.address)
+  }
+
+  // BIP49 account ypub reproduces the "3…" addresses via P2SH construction
+  const nested = await deriveAddresses(seed, 'btc-nested', 2)
+  assert.equal(nested.xpub, 'ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNB6VvmSEgytSER9azLDWCxoJwW7Ke7icmizBMXrzBx9979FfaHxHcrArf3zbeJJJUZPf663zsP')
+  const watchN = HDKey.fromExtendedKey(nested.xpub, { private: 0x049d7878, public: 0x049d7cb2 })
+  for (const a of nested.addresses) {
+    const pub = watchN.deriveChild(0).deriveChild(a.index).publicKey
+    const redeem = new Uint8Array([0x00, 0x14, ...ripemd160(sha256(pub))])
+    assert.equal(b58c.encode(new Uint8Array([0x05, ...ripemd160(sha256(redeem))])), a.address)
   }
 
   assert.equal((await deriveAddresses(seed, 'sol', 1)).xpub, null) // ed25519: no public derivation
