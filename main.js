@@ -2,6 +2,7 @@
 // Enforces the app's promises: no network, no temp files, only the encrypted
 // blob ever touches disk (via the save dialog).
 const { app, BrowserWindow, dialog, ipcMain, session, clipboard } = require('electron')
+const { execFile } = require('child_process')
 const fs = require('fs/promises')
 const path = require('path')
 
@@ -96,6 +97,17 @@ ipcMain.handle('save-encrypted', async (_e, bytes) => {
   await fs.writeFile(target, Buffer.from(bytes))
   return { canceled: false, path: target, bytes: bytes.length }
 })
+
+// `openssl version` of the local binary, for the export's comment header —
+// documents a version known to exist alongside the file. null if not installed.
+let opensslVersionCache
+ipcMain.handle('openssl-version', () => new Promise((resolve) => {
+  if (opensslVersionCache !== undefined) return resolve(opensslVersionCache)
+  execFile('openssl', ['version'], { timeout: 3000 }, (err, stdout) => {
+    opensslVersionCache = err ? null : String(stdout).trim()
+    resolve(opensslVersionCache)
+  })
+}))
 
 // Copy to clipboard; auto-clear after 30s unless the user copied something else since.
 ipcMain.on('copy-text', (_e, text) => {

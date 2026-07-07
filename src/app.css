@@ -97,6 +97,14 @@ html, body, #root { height: 100%; margin: 0; }
 }
 .sv-entry-status { display: flex; align-items: center; gap: 6px; }
 .sv-entry-meta { font-size: var(--evm-text-xs); color: var(--evm-text-4); }
+.sv-entry--dragging { opacity: 0.4; }
+.sv-drop-indicator {
+  height: 2px;
+  border-radius: 1px;
+  background: var(--evm-accent);
+  margin: 0 2px;
+  flex: none;
+}
 .sv-sidebar-foot {
   display: flex;
   flex-direction: column;

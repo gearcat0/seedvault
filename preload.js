@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld('seedvault', {
   copyText: (text) => ipcRenderer.send('copy-text', text),
   /** Tell main whether closing the window would lose entries. */
   setHasEntries: (v) => ipcRenderer.send('set-has-entries', v),
+  /** `openssl version` of the local binary, or null if openssl isn't installed. */
+  opensslVersion: () => ipcRenderer.invoke('openssl-version'),
 })

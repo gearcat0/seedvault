@@ -11,6 +11,7 @@ import {
   opensslEncrypt, opensslDecrypt, armor, dearmor, suggest, normalizeMnemonic,
 } from '../dist/test/seedcrypto.mjs'
 import { buildMarkdown, decryptCommand } from '../dist/test/markdown.mjs'
+import { reorderEntries } from '../dist/test/types.mjs'
 
 const VECTOR = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 
@@ -112,6 +113,25 @@ test('decrypt command names the saved file, quoted when needed', () => {
     "openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in 'family backup 2026.enc' | more")
   assert.equal(decryptCommand("bob's.enc"),
     "openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in 'bob'\\''s.enc' | more")
+})
+
+test('armor flattens newlines in comments so the header cannot be corrupted', async () => {
+  const enc = await opensslEncrypt('x', 'pw', 1000)
+  const armored = armor(enc, ['line one\nline two\r\nline three', 'Generated 2026-07-07'])
+  assert.match(armored, /^# line one line two line three\n# Generated 2026-07-07\n/)
+  // every line is either a comment or base64
+  for (const l of armored.trimEnd().split('\n')) assert.match(l, /^(#|[A-Za-z0-9+/=]+$)/)
+  assert.equal(await opensslDecrypt(dearmor(armored), 'pw', 1000), 'x')
+})
+
+test('reorderEntries moves an entry to an insertion point', () => {
+  const list = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }]
+  assert.deepEqual(reorderEntries(list, 1, 4).map((e) => e.id), [2, 3, 4, 1]) // first → end
+  assert.deepEqual(reorderEntries(list, 4, 0).map((e) => e.id), [4, 1, 2, 3]) // last → front
+  assert.deepEqual(reorderEntries(list, 2, 3).map((e) => e.id), [1, 3, 2, 4]) // one step down
+  assert.equal(reorderEntries(list, 2, 1), list) // dropping onto its own slot is a no-op
+  assert.equal(reorderEntries(list, 2, 2), list) // ...from either side
+  assert.equal(reorderEntries(list, 99, 0), list) // unknown id is a no-op
 })
 
 test('markdown export format', () => {

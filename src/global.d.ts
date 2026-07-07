@@ -7,6 +7,7 @@ declare global {
       saveEncrypted(bytes: Uint8Array): Promise<{ canceled: boolean; path?: string; bytes?: number }>
       copyText(text: string): void
       setHasEntries(v: boolean): void
+      opensslVersion(): Promise<string | null>
     }
   }
 }

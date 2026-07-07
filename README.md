@@ -10,9 +10,13 @@ single `seeds.md.enc` file that any machine with OpenSSL can decrypt:
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in seeds.md.enc | more
 ```
 
-The file is printable ASCII: a `#` comment header carrying the generation
-timestamp and the decrypt command (OpenSSL skips these lines), followed by the
-base64-armored ciphertext — safe to print, paste, or archive anywhere.
+The file is printable ASCII: a `#` comment header carrying an optional
+envelope title (plaintext — visible without the passphrase), the generation
+timestamp, the decrypt command with the actual file name, and the local
+`openssl version` at creation time (OpenSSL skips these lines when
+decrypting), followed by the base64-armored ciphertext — safe to print,
+paste, or archive anywhere. Entries can be reordered by dragging in the
+sidebar; the order becomes the section order in the backup.
 
 ## Guarantees
 

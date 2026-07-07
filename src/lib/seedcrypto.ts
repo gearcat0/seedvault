@@ -199,7 +199,9 @@ export function armor(bytes: Uint8Array, comments: string[]): string {
     b64 += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
   }
   b64 = btoa(b64)
-  const lines = comments.map((c) => '# ' + c)
+  // a newline inside a comment would end the `#` line and corrupt the base64
+  // block, so flatten any that sneak in (e.g. from a pasted envelope title)
+  const lines = comments.map((c) => '# ' + c.replace(/[\r\n]+/g, ' '))
   for (let i = 0; i < b64.length; i += 64) lines.push(b64.slice(i, i + 64))
   return lines.join('\n') + '\n'
 }

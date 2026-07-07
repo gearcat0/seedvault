@@ -4,7 +4,7 @@ import { StatusBar, StatusItem, StatusSpacer } from 'evm-ui'
 import {
   ChainKey, CHAINS, deriveAddresses, mnemonicToSeed, normalizeMnemonic, validateMnemonic,
 } from './lib/seedcrypto'
-import { clampCount, Derivation, Entry } from './lib/types'
+import { clampCount, Derivation, Entry, reorderEntries } from './lib/types'
 import { Sidebar } from './components/Sidebar'
 import { SeedEditor } from './components/SeedEditor'
 import { NoteEditor } from './components/NoteEditor'
@@ -150,6 +150,7 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
           entries={entries}
           selectedId={selectedId}
           onSelect={(id) => { setSelectedId(id); setConfirmDeleteId(null) }}
+          onReorder={(id, insertIndex) => setEntries((es) => reorderEntries(es, id, insertIndex))}
           onAddSeed={() => addEntry('seed')}
           onAddNote={() => addEntry('note')}
         />

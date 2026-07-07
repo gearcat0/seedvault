@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Button, Field, Input, Modal } from 'evm-ui'
 import { armor, opensslEncrypt } from '../lib/seedcrypto'
 import { buildMarkdown, decryptCommand, KDF_ITERATIONS } from '../lib/markdown'
@@ -25,10 +25,16 @@ export function ExportModal({ open, entries, copiedKey, onCopy, onClose }: {
   onCopy: (key: string, text: string) => void
   onClose: () => void
 }) {
+  const [title, setTitle] = useState('')
   const [pass, setPass] = useState('')
   const [pass2, setPass2] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<string | null>(null)
+  const [osslVersion, setOsslVersion] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) window.seedvault?.opensslVersion().then(setOsslVersion).catch(() => {})
+  }, [open])
 
   const preview = useMemo(() => (open ? buildMarkdown(entries) : ''), [open, entries])
 
@@ -55,7 +61,12 @@ export function ExportModal({ open, entries, copiedKey, onCopy, onClose }: {
       const d = new Date()
       const p = (n: number) => String(n).padStart(2, '0')
       const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-      const armored = armor(ct, [`Generated ${stamp}`, `To decrypt run: ${decryptCommand(choice.name)}`])
+      const comments: string[] = []
+      if (title.trim()) comments.push(title.trim())
+      comments.push(`Generated ${stamp}`)
+      comments.push(`To decrypt run: ${decryptCommand(choice.name)}`)
+      if (osslVersion) comments.push(`OpenSSL version at creation: ${osslVersion}`)
+      const armored = armor(ct, comments)
       const bytes = new TextEncoder().encode(armored)
       const res = await window.seedvault.saveEncrypted(bytes)
       setBusy(false)
@@ -93,6 +104,18 @@ export function ExportModal({ open, entries, copiedKey, onCopy, onClose }: {
           </div>
           <pre className="sv-preview">{preview}</pre>
         </div>
+
+        <Field
+          label={<>Envelope title <span className="sv-label-optional">(optional — stored in plaintext)</span></>}
+          hint="Written as a comment at the top of the encrypted file, so anyone holding the file can read it without the passphrase. Use it to say what/whose this envelope is — never put secrets here."
+        >
+          <Input
+            value={title}
+            onChange={(ev) => { setTitle(ev.target.value); setDone(null) }}
+            placeholder="e.g. Family seed-phrase backup — copy 1 of 2, bank vault"
+            spellCheck={false}
+          />
+        </Field>
 
         <div className="sv-pass-row">
           <Field label="Encryption passphrase">
