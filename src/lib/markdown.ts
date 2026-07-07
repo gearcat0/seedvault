@@ -52,9 +52,14 @@ export function buildMarkdown(entries: Entry[], kdfIter = KDF_ITERATIONS): strin
       if (!(d.addresses && d.addresses.length)) continue
       lines.push('First ' + d.addresses.length + ' addresses — ' + CHAINS[d.chain].name + ':')
       lines.push('')
+      if (d.xpub) {
+        lines.push('    account xpub (watch-only, finds all balances): ' + d.xpub)
+        lines.push('')
+      }
       for (const a of d.addresses) {
         const desc = d.descs[a.index]
         lines.push('    ' + a.path.padEnd(20) + ' ' + a.address + (desc && desc.trim() ? '  — ' + desc.trim() : ''))
+        lines.push('    ' + ''.padEnd(20) + ' private key: ' + a.priv)
       }
       lines.push('')
     }

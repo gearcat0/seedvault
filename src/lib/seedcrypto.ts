@@ -132,41 +132,75 @@ export const CHAINS: Record<ChainKey, { name: string; pathLabel: (i: number) => 
   tron: { name: 'Tron (BIP44)', pathLabel: (i) => `m/44'/195'/0'/0/${i}` },
 }
 
-export interface DerivedAddress { index: number; path: string; address: string }
+export interface DerivedAddress {
+  index: number
+  path: string
+  address: string
+  /** wallet-importable private key: WIF (Bitcoin), 0x-hex (Ethereum),
+      hex (Tron), base58 64-byte keypair (Solana / Phantom format) */
+  priv: string
+}
+
+export interface AccountDerivation {
+  /** account-level extended public key (zpub for BIP84, xpub for BIP44) for
+      watch-only balance discovery; null for ed25519 chains, which have no
+      public derivation */
+  xpub: string | null
+  addresses: DerivedAddress[]
+}
+
+// BIP84 mainnet zprv/zpub version bytes; BIP44 uses scure's xprv/xpub default.
+const ZPRV_ZPUB = { private: 0x04b2430c, public: 0x04b24746 }
+
+/** WIF for a compressed-pubkey private key (mainnet). */
+const toWif = (key: Uint8Array) =>
+  base58check.encode(concat(new Uint8Array([0x80]), key, new Uint8Array([0x01])))
 
 const yieldToUi = () => new Promise<void>((r) => setTimeout(r, 0))
 
-/** Derive `count` receive addresses. Async so the UI can show progress and
-    drop stale results; yields to the event loop periodically. */
+/** Derive `count` receive addresses with their private keys, plus the
+    account xpub. Async so the UI can show progress and drop stale results;
+    yields to the event loop periodically. */
 export async function deriveAddresses(
   seed: Uint8Array, chain: ChainKey, count: number
-): Promise<DerivedAddress[]> {
-  const out: DerivedAddress[] = []
+): Promise<AccountDerivation> {
+  const addresses: DerivedAddress[] = []
   if (chain === 'sol') {
     for (let i = 0; i < count; i++) {
       const node = slip10Path(seed, [H + 44, H + 501, H + i, H + 0])
-      out.push({ index: i, path: CHAINS.sol.pathLabel(i), address: base58.encode(ed25519.getPublicKey(node.k)) })
+      const pub = ed25519.getPublicKey(node.k)
+      addresses.push({
+        index: i,
+        path: CHAINS.sol.pathLabel(i),
+        address: base58.encode(pub),
+        priv: base58.encode(concat(node.k, pub)),
+      })
       if (i % 5 === 4) await yieldToUi()
     }
-    return out
+    return { xpub: null, addresses }
   }
   const purpose = chain === 'btc-segwit' ? 84 : 44
   const coin = chain === 'eth' ? 60 : chain === 'tron' ? 195 : 0
-  const acct = HDKey.fromMasterSeed(seed).derive(`m/${purpose}'/${coin}'/0'/0`)
+  const master = HDKey.fromMasterSeed(seed, chain === 'btc-segwit' ? ZPRV_ZPUB : undefined)
+  const acct = master.derive(`m/${purpose}'/${coin}'/0'`)
+  const external = acct.deriveChild(0)
   for (let i = 0; i < count; i++) {
-    const node = acct.deriveChild(i)
+    const node = external.deriveChild(i)
     const pub33 = node.publicKey!
-    let address: string
-    if (chain === 'btc-segwit') address = btcSegwitAddress(pub33)
-    else if (chain === 'btc-legacy') address = btcLegacyAddress(pub33)
-    else {
+    const key = node.privateKey!
+    let address: string, priv: string
+    if (chain === 'btc-segwit' || chain === 'btc-legacy') {
+      address = chain === 'btc-segwit' ? btcSegwitAddress(pub33) : btcLegacyAddress(pub33)
+      priv = toWif(key)
+    } else {
       const pub64 = secp256k1.ProjectivePoint.fromHex(pub33).toRawBytes(false).slice(1)
       address = chain === 'eth' ? ethAddress(pub64) : tronAddress(pub64)
+      priv = chain === 'eth' ? '0x' + hex(key) : hex(key)
     }
-    out.push({ index: i, path: CHAINS[chain].pathLabel(i), address })
+    addresses.push({ index: i, path: CHAINS[chain].pathLabel(i), address, priv })
     if (i % 5 === 4) await yieldToUi()
   }
-  return out
+  return { xpub: acct.publicExtendedKey, addresses }
 }
 
 // ---------- OpenSSL-compatible encryption ----------
@@ -233,9 +267,13 @@ export async function selfTest(): Promise<Record<string, boolean>> {
   r.checksumRejects = !validateMnemonic(m.replace('about', 'abandon')).ok
   const seed = mnemonicToSeed(m, '')
   r.seed = hex(seed).startsWith('5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc1')
-  r.btcLegacy = (await deriveAddresses(seed, 'btc-legacy', 1))[0].address === '1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA'
-  r.btcSegwit = (await deriveAddresses(seed, 'btc-segwit', 1))[0].address === 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu'
-  r.eth = (await deriveAddresses(seed, 'eth', 1))[0].address === '0x9858EfFD232B4033E47d90003D41EC34EcaEda94'
+  r.btcLegacy = (await deriveAddresses(seed, 'btc-legacy', 1)).addresses[0].address === '1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA'
+  const segwit = await deriveAddresses(seed, 'btc-segwit', 1)
+  r.btcSegwit = segwit.addresses[0].address === 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu'
+  // BIP84 spec test vectors for the same mnemonic: account zpub + first WIF
+  r.btcZpub = segwit.xpub === 'zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs'
+  r.btcWif = segwit.addresses[0].priv === 'KyZpNDKnfs94vbrwhJneDi77V6jF64PWPF8x5cdJb8ifgg2DUc9d'
+  r.eth = (await deriveAddresses(seed, 'eth', 1)).addresses[0].address === '0x9858EfFD232B4033E47d90003D41EC34EcaEda94'
   // SLIP-0010 ed25519 test vector 1, chain m/0'
   const s10 = slip10Path(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]), [H + 0])
   r.slip10Priv = hex(s10.k) === '68e0fe46dfb67e368c75379acec591dad19df3cde26e63b93a8e704f1dade7a3'

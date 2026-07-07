@@ -172,6 +172,29 @@ button.sv-suggestion:hover { filter: brightness(1.25); }
 .sv-label-optional { color: var(--evm-text-4); font-weight: var(--evm-weight-normal); }
 
 /* ---------- derived-address table ---------- */
+.sv-xpub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.sv-xpub-label {
+  font-size: var(--evm-text-xs);
+  color: var(--evm-text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex: none;
+}
+.sv-xpub {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--evm-font-mono);
+  font-size: var(--evm-text-xs);
+  color: var(--evm-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sv-addr-table th:nth-child(1) { width: 32px; }
 .sv-addr-table th:nth-child(2) { width: 130px; }
 .sv-addr-table th:nth-child(3) { width: 1%; }

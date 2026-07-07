@@ -36,21 +36,104 @@ test('validation failure modes are distinguished', () => {
 
 test('derivation matches wallets for all five chains', async () => {
   const seed = mnemonicToSeed(VECTOR, '')
-  const one = async (chain) => (await deriveAddresses(seed, chain, 1))[0].address
+  const one = async (chain) => (await deriveAddresses(seed, chain, 1)).addresses[0].address
   assert.equal(await one('btc-segwit'), 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu') // BIP84 vector
   assert.equal(await one('btc-legacy'), '1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA') // BIP44 vector
   assert.equal(await one('eth'), '0x9858EfFD232B4033E47d90003D41EC34EcaEda94') // MEW/Ledger
   assert.equal(await one('sol'), 'HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk') // Phantom m/44'/501'/0'/0'
   assert.equal(await one('tron'), 'TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH') // TronLink
   const segwit = await deriveAddresses(seed, 'btc-segwit', 3)
-  assert.equal(segwit[2].address, 'bc1qp59yckz4ae5c4efgw2s5wfyvrz0ala7rgvuz8z') // BIP84 index 2
-  for (const a of segwit) assert.equal(a.address.length, 42)
+  assert.equal(segwit.addresses[2].address, 'bc1qp59yckz4ae5c4efgw2s5wfyvrz0ala7rgvuz8z') // BIP84 index 2
+  for (const a of segwit.addresses) assert.equal(a.address.length, 42)
 })
 
 test('BIP39 passphrase changes addresses', async () => {
-  const a = (await deriveAddresses(mnemonicToSeed(VECTOR, ''), 'eth', 1))[0].address
-  const b = (await deriveAddresses(mnemonicToSeed(VECTOR, 'TREZOR'), 'eth', 1))[0].address
+  const a = (await deriveAddresses(mnemonicToSeed(VECTOR, ''), 'eth', 1)).addresses[0].address
+  const b = (await deriveAddresses(mnemonicToSeed(VECTOR, 'TREZOR'), 'eth', 1)).addresses[0].address
   assert.notEqual(a, b)
+})
+
+test('private keys independently re-derive their own addresses', async () => {
+  const { secp256k1 } = await import('@noble/curves/secp256k1')
+  const { ed25519 } = await import('@noble/curves/ed25519')
+  const { keccak_256 } = await import('@noble/hashes/sha3')
+  const { ripemd160 } = await import('@noble/hashes/legacy')
+  const { sha256 } = await import('@noble/hashes/sha2')
+  const { base58, bech32, createBase58check } = await import('@scure/base')
+  const b58c = createBase58check(sha256)
+  const seed = mnemonicToSeed(VECTOR, '')
+
+  // BIP84 spec vectors: first WIF for the abandon…about mnemonic
+  const segwit = await deriveAddresses(seed, 'btc-segwit', 2)
+  assert.equal(segwit.addresses[0].priv, 'KyZpNDKnfs94vbrwhJneDi77V6jF64PWPF8x5cdJb8ifgg2DUc9d')
+  for (const a of segwit.addresses) {
+    const decoded = b58c.decode(a.priv) // 0x80 ‖ key32 ‖ 0x01
+    assert.equal(decoded[0], 0x80)
+    assert.equal(decoded[33], 0x01)
+    const pub = secp256k1.getPublicKey(decoded.slice(1, 33), true)
+    assert.equal(bech32.encode('bc', [0, ...bech32.toWords(ripemd160(sha256(pub)))]), a.address)
+  }
+  const legacy = (await deriveAddresses(seed, 'btc-legacy', 1)).addresses[0]
+  {
+    const key = b58c.decode(legacy.priv).slice(1, 33)
+    const pub = secp256k1.getPublicKey(key, true)
+    assert.equal(b58c.encode(new Uint8Array([0, ...ripemd160(sha256(pub))])), legacy.address)
+  }
+
+  // Ethereum: 0x-hex key → keccak(pubkey)[12:] must equal the address
+  const eth = (await deriveAddresses(seed, 'eth', 1)).addresses[0]
+  assert.match(eth.priv, /^0x[0-9a-f]{64}$/)
+  {
+    const pub = secp256k1.getPublicKey(eth.priv.slice(2), false).slice(1)
+    const raw = Buffer.from(keccak_256(pub).slice(12)).toString('hex')
+    assert.equal('0x' + raw, eth.address.toLowerCase())
+  }
+
+  // Tron: hex key → base58check(0x41 ‖ keccak(pubkey)[12:])
+  const tron = (await deriveAddresses(seed, 'tron', 1)).addresses[0]
+  assert.match(tron.priv, /^[0-9a-f]{64}$/)
+  {
+    const pub = secp256k1.getPublicKey(tron.priv, false).slice(1)
+    assert.equal(b58c.encode(new Uint8Array([0x41, ...keccak_256(pub).slice(12)])), tron.address)
+  }
+
+  // Solana: base58 64-byte keypair (Phantom format), second half = pubkey = address
+  const sol = (await deriveAddresses(seed, 'sol', 1)).addresses[0]
+  const pair = base58.decode(sol.priv)
+  assert.equal(pair.length, 64)
+  assert.deepEqual(Array.from(ed25519.getPublicKey(pair.slice(0, 32))), Array.from(pair.slice(32)))
+  assert.equal(base58.encode(pair.slice(32)), sol.address)
+})
+
+test('account xpub alone reproduces the addresses (watch-only)', async () => {
+  const { HDKey } = await import('@scure/bip32')
+  const { sha256 } = await import('@noble/hashes/sha2')
+  const { ripemd160 } = await import('@noble/hashes/legacy')
+  const { bech32, createBase58check } = await import('@scure/base')
+  const b58c = createBase58check(sha256)
+  const seed = mnemonicToSeed(VECTOR, '')
+
+  // BIP84 spec vector for the account zpub
+  const segwit = await deriveAddresses(seed, 'btc-segwit', 3)
+  assert.equal(segwit.xpub, 'zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs')
+  const watch = HDKey.fromExtendedKey(segwit.xpub, { private: 0x04b2430c, public: 0x04b24746 })
+  assert.equal(watch.privateKey, null) // public-only — safe to share
+  for (const a of segwit.addresses) {
+    const pub = watch.deriveChild(0).deriveChild(a.index).publicKey
+    assert.equal(bech32.encode('bc', [0, ...bech32.toWords(ripemd160(sha256(pub)))]), a.address)
+  }
+
+  const legacy = await deriveAddresses(seed, 'btc-legacy', 2)
+  assert.match(legacy.xpub, /^xpub/)
+  const watchL = HDKey.fromExtendedKey(legacy.xpub)
+  for (const a of legacy.addresses) {
+    const pub = watchL.deriveChild(0).deriveChild(a.index).publicKey
+    assert.equal(b58c.encode(new Uint8Array([0, ...ripemd160(sha256(pub))])), a.address)
+  }
+
+  assert.equal((await deriveAddresses(seed, 'sol', 1)).xpub, null) // ed25519: no public derivation
+  assert.match((await deriveAddresses(seed, 'eth', 1)).xpub, /^xpub/)
+  assert.match((await deriveAddresses(seed, 'tron', 1)).xpub, /^xpub/)
 })
 
 test('suggest completes prefixes from the wordlist', () => {
@@ -66,7 +149,7 @@ test('openssl CLI decrypts our output; we decrypt openssl output', async () => {
       id: 1, kind: 'seed', label: 'Test seed', mnemonic: VECTOR, passphrase: '',
       note: 'unit test', validation: null,
       derivations: [{ id: 'd1', chain: 'btc-segwit', count: '2', deriving: false, descs: { 0: 'first' },
-        addresses: await deriveAddresses(mnemonicToSeed(VECTOR, ''), 'btc-segwit', 2) }],
+        ...(await deriveAddresses(mnemonicToSeed(VECTOR, ''), 'btc-segwit', 2)) }],
     }])
     const pass = 'correct horse battery staple'
 
@@ -83,6 +166,10 @@ test('openssl CLI decrypts our output; we decrypt openssl output', async () => {
       '-in', encPath, '-pass', 'pass:' + pass,
     ]).toString()
     assert.equal(decrypted, plaintext)
+
+    // the plaintext carries xpub + private keys for each derived address
+    assert.match(plaintext, /account xpub \(watch-only, finds all balances\): zpub6rFR7y4Q2Aij/)
+    assert.match(plaintext, /private key: KyZpNDKnfs94vbrwhJneDi77V6jF64PWPF8x5cdJb8ifgg2DUc9d/)
 
     // the file is printable ASCII with the comments on top
     assert.match(armored, /^# Generated 2026-07-07 17:49:01\n# To decrypt run: openssl enc -d/)
@@ -147,6 +234,7 @@ test('markdown export format', () => {
   assert.match(md, /- BIP39 passphrase: `x y`/)
   assert.match(md, /^ {5}1\. abandon/m)
   assert.match(md, /## 2\. 2FA codes\n\ncode1 code2/)
+  assert.doesNotMatch(md, /account xpub|private key:/) // no derivations in this fixture
   assert.match(md, /openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -a -in seeds\.md -out seeds\.md\.enc/)
   assert.equal(normalizeMnemonic(VECTOR).length, 12)
 })

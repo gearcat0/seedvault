@@ -6,6 +6,8 @@ export interface Derivation {
   /** kept as string while editing; clamped to 1–50 when deriving */
   count: string
   addresses: DerivedAddress[] | null
+  /** account extended public key (null for ed25519 chains / not derived yet) */
+  xpub: string | null
   deriving: boolean
   /** user descriptions per address index; included in the export */
   descs: Record<number, string>

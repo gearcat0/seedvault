@@ -56,6 +56,15 @@ export function DerivationSection({
         </>
       }
     >
+      {hasAddresses && deriv.xpub && (
+        <div className="sv-xpub-row">
+          <span className="sv-xpub-label">account xpub</span>
+          <code className="sv-xpub" title={deriv.xpub}>{deriv.xpub}</code>
+          <Button variant="ghost" size="sm" onClick={() => onCopy('xpub' + deriv.id, deriv.xpub!)}>
+            {copiedKey === 'xpub' + deriv.id ? '✓' : 'copy'}
+          </Button>
+        </div>
+      )}
       {hasAddresses && (
         <div className="sv-addr-table">
           <Table

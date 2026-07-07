@@ -20,6 +20,7 @@ const newDeriv = (chain: ChainKey = DEFAULT_CHAIN): Derivation => ({
   chain,
   count: DEFAULT_COUNT,
   addresses: null,
+  xpub: null,
   deriving: false,
   descs: {},
 })
@@ -59,7 +60,7 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
     if (!v.ok) {
       updateEntry(id, {
         validation: v,
-        derivations: entry.derivations.map((d) => ({ ...d, addresses: null, deriving: false })),
+        derivations: entry.derivations.map((d) => ({ ...d, addresses: null, xpub: null, deriving: false })),
       })
       return
     }
@@ -67,9 +68,9 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
     try {
       const seed = mnemonicToSeed(entry.mnemonic, entry.passphrase)
       for (const d of entry.derivations) {
-        const addrs = await deriveAddresses(seed, d.chain, clampCount(d.count))
+        const acct = await deriveAddresses(seed, d.chain, clampCount(d.count))
         if (deriveTokens.current[id] !== token) return
-        updateDeriv(id, d.id, { addresses: addrs, deriving: false })
+        updateDeriv(id, d.id, { addresses: acct.addresses, xpub: acct.xpub, deriving: false })
       }
     } catch (err) {
       if (deriveTokens.current[id] !== token) return
@@ -181,7 +182,7 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
                 onNoteChange={(v) => updateEntry(selected.id, { note: v })}
                 onDelete={onDelete}
                 onPickSuggestion={(next) => { updateEntry(selected.id, { mnemonic: next }); scheduleDerive(selected.id, 50) }}
-                onChainChange={(derivId, chain) => { updateDeriv(selected.id, derivId, { chain, addresses: null }); scheduleDerive(selected.id, 50) }}
+                onChainChange={(derivId, chain) => { updateDeriv(selected.id, derivId, { chain, addresses: null, xpub: null }); scheduleDerive(selected.id, 50) }}
                 onCountChange={(derivId, count) => { updateDeriv(selected.id, derivId, { count }); scheduleDerive(selected.id, 600) }}
                 onDescChange={(derivId, index, desc) => {
                   const d = selected.derivations.find((x) => x.id === derivId)

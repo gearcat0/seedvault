@@ -18,6 +18,13 @@ decrypting), followed by the base64-armored ciphertext — safe to print,
 paste, or archive anywhere. Entries can be reordered by dragging in the
 sidebar; the order becomes the section order in the backup.
 
+Each derivation section in the backup also carries every address's
+wallet-importable private key (WIF for Bitcoin, hex for Ethereum/Tron,
+Phantom-style base58 keypair for Solana) so a single account can be restored
+without importing the whole seed, plus the account xpub (zpub for BIP84) for
+watch-only balance discovery. Solana has no xpub — SLIP-0010 ed25519 is
+hardened-only.
+
 ## Guarantees
 
 - **Zero network.** Enforced three ways: `webRequest` deny-all in the main
