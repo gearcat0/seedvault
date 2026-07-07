@@ -1,7 +1,7 @@
 // Seed Vault — Electron main process.
 // Enforces the app's promises: no network, no temp files, only the encrypted
 // blob ever touches disk (via the save dialog).
-const { app, BrowserWindow, dialog, ipcMain, session, clipboard } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, session, clipboard, screen } = require('electron')
 const { execFile } = require('child_process')
 const fs = require('fs/promises')
 const path = require('path')
@@ -9,18 +9,24 @@ const path = require('path')
 // The app loads only local files; kill every other protocol at the network layer.
 const ALLOWED_URL = /^(file:|devtools:|chrome-extension:|about:blank)/
 
-const { DEFAULT_ZOOM, attachZoomControls } = require('./zoom')
+const { defaultZoomFor, attachZoomControls } = require('./zoom')
 
 let hasEntries = false
 let clipboardTimer = null
 
 function createWindow() {
-  // scale the window with the platform zoom so 2× content gets 2× the frame
+  const display = screen.getPrimaryDisplay()
+  const zoom = defaultZoomFor(display)
+  const work = display.workAreaSize
+  // Scale the window with the zoom, but never larger than the usable work area
+  // (so a scaled-up window can't overflow the screen).
+  const fit = (base, avail) => Math.min(Math.round(base * zoom), avail)
+
   const win = new BrowserWindow({
-    width: 1280 * DEFAULT_ZOOM,
-    height: 860 * DEFAULT_ZOOM,
-    minWidth: 900 * DEFAULT_ZOOM,
-    minHeight: 600 * DEFAULT_ZOOM,
+    width: fit(1280, work.width),
+    height: fit(860, work.height),
+    minWidth: fit(900, work.width),
+    minHeight: fit(600, work.height),
     backgroundColor: '#08080a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -28,11 +34,11 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       spellcheck: false,
-      zoomFactor: DEFAULT_ZOOM,
+      zoomFactor: zoom,
     },
   })
   win.removeMenu()
-  attachZoomControls(win)
+  attachZoomControls(win, zoom)
   win.loadFile('index.html')
 
   win.on('close', (e) => {
