@@ -67,9 +67,11 @@ app.on('window-all-closed', () => app.quit())
 ipcMain.on('set-has-entries', (_e, v) => { hasEntries = !!v })
 
 // Save the ciphertext (and nothing else) through the OS save dialog.
+// Accepts only armored OpenSSL output: optional `#` comment lines, then
+// base64 whose first bytes decode to the "Salted__" magic ("U2FsdGVk").
 ipcMain.handle('save-encrypted', async (e, bytes) => {
-  if (!(bytes instanceof Uint8Array) || bytes.length < 16 ||
-      Buffer.from(bytes.slice(0, 8)).toString('latin1') !== 'Salted__') {
+  const text = bytes instanceof Uint8Array ? Buffer.from(bytes).toString('latin1') : ''
+  if (!/^(#[^\n]*\n)*U2FsdGVk/.test(text)) {
     throw new Error('refusing to write: not an OpenSSL-encrypted payload')
   }
   const win = BrowserWindow.fromWebContents(e.sender)

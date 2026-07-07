@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Button, Field, Input, Modal } from 'evm-ui'
-import { opensslEncrypt } from '../lib/seedcrypto'
+import { armor, opensslEncrypt } from '../lib/seedcrypto'
 import { buildMarkdown, KDF_ITERATIONS } from '../lib/markdown'
 import type { Entry } from '../lib/types'
 
@@ -41,13 +41,18 @@ export function ExportModal({ open, entries, copiedKey, onCopy, onClose }: {
 
   const strength = passStrength(pass)
   const passOk = pass.length >= 8 && pass === pass2
-  const decryptCmd = `openssl enc -d -aes-256-cbc -pbkdf2 -iter ${KDF_ITERATIONS} -in seeds.md.enc -out seeds.md`
+  const decryptCmd = `openssl enc -d -aes-256-cbc -pbkdf2 -iter ${KDF_ITERATIONS} -a -in seeds.md.enc | more`
 
   const doEncrypt = async () => {
     setBusy(true)
     setDone(null)
     try {
-      const bytes = await opensslEncrypt(buildMarkdown(entries), pass, KDF_ITERATIONS)
+      const ct = await opensslEncrypt(buildMarkdown(entries), pass, KDF_ITERATIONS)
+      const d = new Date()
+      const p = (n: number) => String(n).padStart(2, '0')
+      const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+      const armored = armor(ct, [`Generated ${stamp}`, `To decrypt run: ${decryptCmd}`])
+      const bytes = new TextEncoder().encode(armored)
       if (!window.seedvault) throw new Error('save bridge unavailable')
       const res = await window.seedvault.saveEncrypted(bytes)
       setBusy(false)
@@ -132,8 +137,9 @@ export function ExportModal({ open, entries, copiedKey, onCopy, onClose }: {
             </Button>
           </div>
           <span className="evm-field-hint">
-            Encryption is AES-256-CBC with PBKDF2 ({KDF_ITERATIONS} iterations, SHA-256) — byte-identical
-            to <span className="sv-cmd-hint-mono">openssl enc -aes-256-cbc -pbkdf2 -iter {KDF_ITERATIONS} -salt</span>.
+            Encryption is AES-256-CBC with PBKDF2 ({KDF_ITERATIONS} iterations, SHA-256) — the output
+            of <span className="sv-cmd-hint-mono">openssl enc -aes-256-cbc -pbkdf2 -iter {KDF_ITERATIONS} -salt -a</span>,
+            plus a comment header with this command. The file is printable ASCII.
           </span>
         </div>
 

@@ -7,8 +7,12 @@ your wallet and catch transcription errors, and everything is encrypted into a
 single `seeds.md.enc` file that any machine with OpenSSL can decrypt:
 
 ```sh
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -in seeds.md.enc -out seeds.md
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in seeds.md.enc | more
 ```
+
+The file is printable ASCII: a `#` comment header carrying the generation
+timestamp and the decrypt command (OpenSSL skips these lines), followed by the
+base64-armored ciphertext — safe to print, paste, or archive anywhere.
 
 ## Guarantees
 
@@ -18,9 +22,9 @@ openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -in seeds.md.enc -out seeds.md
   the ciphertext, through the OS save dialog. The main process refuses to write
   anything that doesn't start with the OpenSSL `Salted__` header.
 - **OpenSSL-compatible output.** AES-256-CBC, PBKDF2-HMAC-SHA256, 100000
-  iterations, `Salted__` envelope — byte-identical to
-  `openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt`. The test suite
-  round-trips against the real `openssl` CLI in both directions.
+  iterations, `Salted__` envelope, base64-armored (`-a`) with a comment
+  header. The test suite round-trips against the real `openssl` CLI in both
+  directions, comments included.
 - **Self-testing crypto.** On every launch the renderer re-checks published
   test vectors (BIP39, BIP84/BIP44, SLIP-0010, keccak/ripemd, OpenSSL
   round-trip, wordlist SHA-256) and refuses to run if any fail.

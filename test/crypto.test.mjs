@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   selfTest, validateMnemonic, mnemonicToSeed, deriveAddresses,
-  opensslEncrypt, opensslDecrypt, suggest, normalizeMnemonic,
+  opensslEncrypt, opensslDecrypt, armor, dearmor, suggest, normalizeMnemonic,
 } from '../dist/test/seedcrypto.mjs'
 import { buildMarkdown } from '../dist/test/markdown.mjs'
 
@@ -69,24 +69,33 @@ test('openssl CLI decrypts our output; we decrypt openssl output', async () => {
     }])
     const pass = 'correct horse battery staple'
 
-    // ours → openssl
+    // ours → openssl: armored with comment header, exactly what the app saves
     const enc = await opensslEncrypt(plaintext, pass, 100000)
+    const armored = armor(enc, [
+      'Generated 2026-07-07 17:49:01',
+      'To decrypt run: openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -in seeds.md.enc | more',
+    ])
     const encPath = join(dir, 'seeds.md.enc')
-    writeFileSync(encPath, enc)
+    writeFileSync(encPath, armored)
     const decrypted = execFileSync('openssl', [
-      'enc', '-d', '-aes-256-cbc', '-pbkdf2', '-iter', '100000',
+      'enc', '-d', '-aes-256-cbc', '-pbkdf2', '-iter', '100000', '-a',
       '-in', encPath, '-pass', 'pass:' + pass,
     ]).toString()
     assert.equal(decrypted, plaintext)
 
-    // openssl → ours
+    // the file is printable ASCII with the comments on top
+    assert.match(armored, /^# Generated 2026-07-07 17:49:01\n# To decrypt run: openssl enc -d/)
+    assert.match(armored, /\n(U2FsdGVk)/) // base64("Salted__") right after the comments
+    assert.ok([...armored].every((c) => c === '\n' || (c >= ' ' && c <= '~')))
+
+    // openssl -a → ours
     const mdPath = join(dir, 'seeds.md')
     writeFileSync(mdPath, plaintext)
     execFileSync('openssl', [
-      'enc', '-aes-256-cbc', '-pbkdf2', '-iter', '100000', '-salt',
+      'enc', '-aes-256-cbc', '-pbkdf2', '-iter', '100000', '-salt', '-a',
       '-in', mdPath, '-out', encPath, '-pass', 'pass:' + pass,
     ])
-    const theirs = new Uint8Array(readFileSync(encPath))
+    const theirs = dearmor(readFileSync(encPath, 'utf8'))
     assert.equal(await opensslDecrypt(theirs, pass, 100000), plaintext)
 
     // wrong passphrase must not decrypt
@@ -109,6 +118,6 @@ test('markdown export format', () => {
   assert.match(md, /- BIP39 passphrase: `x y`/)
   assert.match(md, /^ {5}1\. abandon/m)
   assert.match(md, /## 2\. 2FA codes\n\ncode1 code2/)
-  assert.match(md, /openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -in seeds\.md -out seeds\.md\.enc/)
+  assert.match(md, /openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -a -in seeds\.md -out seeds\.md\.enc/)
   assert.equal(normalizeMnemonic(VECTOR).length, 12)
 })

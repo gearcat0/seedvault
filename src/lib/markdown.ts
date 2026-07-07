@@ -57,7 +57,7 @@ export function buildMarkdown(entries: Entry[], kdfIter = KDF_ITERATIONS): strin
   lines.push('')
   lines.push('To re-encrypt after editing this file:')
   lines.push('')
-  lines.push('    openssl enc -aes-256-cbc -pbkdf2 -iter ' + kdfIter + ' -salt -in seeds.md -out seeds.md.enc')
+  lines.push('    openssl enc -aes-256-cbc -pbkdf2 -iter ' + kdfIter + ' -salt -a -in seeds.md -out seeds.md.enc')
   lines.push('')
   return lines.join('\n')
 }

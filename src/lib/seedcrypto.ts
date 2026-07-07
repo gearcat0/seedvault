@@ -189,6 +189,27 @@ export async function opensslEncrypt(text: string, passphrase: string, iteration
   return concat(te.encode('Salted__'), salt, ct)
 }
 
+/** Wrap ciphertext the way `openssl enc -a` does (base64, 64-char lines),
+    preceded by `#` comment lines. OpenSSL's base64 decoder skips the comment
+    lines on decrypt, so the file stays a plain
+    `openssl enc -d ... -a -in seeds.md.enc` away from readable. */
+export function armor(bytes: Uint8Array, comments: string[]): string {
+  let b64 = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    b64 += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  }
+  b64 = btoa(b64)
+  const lines = comments.map((c) => '# ' + c)
+  for (let i = 0; i < b64.length; i += 64) lines.push(b64.slice(i, i + 64))
+  return lines.join('\n') + '\n'
+}
+
+/** Inverse of {@link armor}: drop `#` comment lines, join and decode base64. */
+export function dearmor(text: string): Uint8Array {
+  const b64 = text.split('\n').filter((l) => !l.startsWith('#')).join('').replace(/\s+/g, '')
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+}
+
 export async function opensslDecrypt(blob: Uint8Array, passphrase: string, iterations = 100000): Promise<string> {
   const salt = blob.slice(8, 16)
   const keyiv = await pbkdf2Subtle(te.encode(passphrase), salt, iterations, 48)
@@ -220,6 +241,9 @@ export async function selfTest(): Promise<Record<string, boolean>> {
   const blob = await opensslEncrypt('hello seeds', 'pw', 1000)
   r.opensslHeader = new TextDecoder().decode(blob.slice(0, 8)) === 'Salted__'
   r.opensslRoundtrip = (await opensslDecrypt(blob, 'pw', 1000)) === 'hello seeds'
+  const armored = armor(blob, ['a comment'])
+  r.armorHeader = armored.startsWith('# a comment\nU2FsdGVk') // base64("Salted__")
+  r.armorRoundtrip = (await opensslDecrypt(dearmor(armored), 'pw', 1000)) === 'hello seeds'
   r.allPass = Object.values(r).every(Boolean)
   return r
 }
