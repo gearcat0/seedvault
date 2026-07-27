@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge, Button } from 'evm-ui'
 import { StatusBar, StatusItem, StatusSpacer } from 'evm-ui'
 import {
-  ChainKey, CHAINS, deriveAddresses, mnemonicToSeed, normalizeMnemonic, validateMnemonic,
+  ChainKey, CHAINS, deriveAddresses, deriveFromXpub, mnemonicToSeed, normalizeMnemonic,
+  validateMnemonic, validateXpub, XPUB_CHAINS,
 } from './lib/seedcrypto'
-import { clampCount, Derivation, Entry, reorderEntries } from './lib/types'
+import { clampCount, Derivation, Entry, EntryKind, reorderEntries } from './lib/types'
 import { Sidebar } from './components/Sidebar'
 import { SeedEditor } from './components/SeedEditor'
 import { NoteEditor } from './components/NoteEditor'
+import { XpubEditor } from './components/XpubEditor'
 import { ExportModal } from './components/ExportModal'
 import { EmptyState } from 'evm-ui'
 
@@ -56,6 +58,48 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
     const entry = entriesRef.current.find((e) => e.id === id)
     if (!entry) return
     const token = (deriveTokens.current[id] = (deriveTokens.current[id] || 0) + 1)
+    const clearDeriving = () => {
+      const cur = entriesRef.current.find((e) => e.id === id)
+      if (cur) updateEntry(id, {
+        derivations: cur.derivations.map((d) => (d.deriving ? { ...d, addresses: null, deriving: false } : d)),
+      })
+    }
+    if (entry.kind === 'xpub') {
+      if (!entry.xpub.trim()) {
+        updateEntry(id, {
+          xpubInfo: null,
+          derivations: entry.derivations.map((d) => ({ ...d, addresses: null, xpub: null, deriving: false })),
+        })
+        return
+      }
+      const info = validateXpub(entry.xpub)
+      if (!info.ok) {
+        updateEntry(id, {
+          xpubInfo: info,
+          derivations: entry.derivations.map((d) => ({ ...d, addresses: null, xpub: null, deriving: false })),
+        })
+        return
+      }
+      // First valid paste: snap a single never-derived section to the chain
+      // the key's version prefix conventionally encodes (zpub → BIP84, …).
+      let derivations = entry.derivations
+      if (!entry.xpubInfo?.ok && info.defaultChain && derivations.length === 1 && !derivations[0].addresses) {
+        derivations = [{ ...derivations[0], chain: info.defaultChain }]
+      }
+      updateEntry(id, { xpubInfo: info, derivations: derivations.map((d) => ({ ...d, deriving: true })) })
+      try {
+        for (const d of derivations) {
+          const acct = await deriveFromXpub(entry.xpub, d.chain, clampCount(d.count))
+          if (deriveTokens.current[id] !== token) return
+          updateDeriv(id, d.id, { addresses: acct.addresses, xpub: acct.xpub, deriving: false })
+        }
+      } catch (err) {
+        if (deriveTokens.current[id] !== token) return
+        clearDeriving()
+        console.error(err)
+      }
+      return
+    }
     const v = validateMnemonic(entry.mnemonic)
     if (!v.ok) {
       updateEntry(id, {
@@ -74,10 +118,7 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
       }
     } catch (err) {
       if (deriveTokens.current[id] !== token) return
-      const cur = entriesRef.current.find((e) => e.id === id)
-      if (cur) updateEntry(id, {
-        derivations: cur.derivations.map((d) => (d.deriving ? { ...d, addresses: null, deriving: false } : d)),
-      })
+      clearDeriving()
       console.error(err)
     }
   }, [updateDeriv, updateEntry])
@@ -87,14 +128,16 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
     deriveTimers.current[id] = setTimeout(() => runDerive(id), delay)
   }, [runDerive])
 
-  const addEntry = useCallback((kind: 'seed' | 'note') => {
+  const addEntry = useCallback((kind: EntryKind) => {
     const id = seq.current++
     const entry: Entry = {
       id, kind,
-      label: kind === 'seed' ? 'Untitled seed ' + id : 'Untitled section ' + id,
-      mnemonic: '', passphrase: '', note: '',
+      label: kind === 'seed' ? 'Untitled seed ' + id
+        : kind === 'xpub' ? 'Untitled xpub ' + id
+        : 'Untitled section ' + id,
+      mnemonic: '', passphrase: '', xpub: '', xpubInfo: null, note: '',
       validation: null,
-      derivations: kind === 'seed' ? [newDeriv()] : [],
+      derivations: kind === 'note' ? [] : [newDeriv()],
     }
     setEntries((es) => [...es, entry])
     setSelectedId(id)
@@ -123,14 +166,17 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
   const addDerivSection = () => {
     if (!selected) return
     const used = new Set(selected.derivations.map((d) => d.chain))
-    const nextChain = (Object.keys(CHAINS) as ChainKey[]).find((c) => !used.has(c)) || DEFAULT_CHAIN
+    const chains = selected.kind === 'xpub' ? XPUB_CHAINS : (Object.keys(CHAINS) as ChainKey[])
+    const nextChain = chains.find((c) => !used.has(c)) || DEFAULT_CHAIN
     updateEntry(selected.id, { derivations: [...selected.derivations, newDeriv(nextChain)] })
-    if (selected.validation?.ok) scheduleDerive(selected.id, 50)
+    const valid = selected.kind === 'xpub' ? selected.xpubInfo?.ok : selected.validation?.ok
+    if (valid) scheduleDerive(selected.id, 50)
   }
 
   const seedEntries = entries.filter((e) => e.kind === 'seed')
   const validSeeds = seedEntries.filter((e) => e.validation?.ok)
-  const noteCount = entries.length - seedEntries.length
+  const xpubCount = entries.filter((e) => e.kind === 'xpub').length
+  const noteCount = entries.filter((e) => e.kind === 'note').length
   const allValid = seedEntries.length > 0 && validSeeds.length === seedEntries.length
 
   return (
@@ -153,6 +199,7 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
           onSelect={(id) => { setSelectedId(id); setConfirmDeleteId(null) }}
           onReorder={(id, insertIndex) => setEntries((es) => reorderEntries(es, id, insertIndex))}
           onAddSeed={() => addEntry('seed')}
+          onAddXpub={() => addEntry('xpub')}
           onAddNote={() => addEntry('note')}
         />
 
@@ -166,6 +213,7 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
                 action={
                   <div className="sv-empty-actions">
                     <Button variant="primary" onClick={() => addEntry('seed')}>Add a seed phrase</Button>
+                    <Button variant="ghost" onClick={() => addEntry('xpub')}>Add an xpub (watch-only)</Button>
                     <Button variant="ghost" onClick={() => addEntry('note')}>Add a text-only section</Button>
                   </div>
                 }
@@ -182,6 +230,26 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
                 onNoteChange={(v) => updateEntry(selected.id, { note: v })}
                 onDelete={onDelete}
                 onPickSuggestion={(next) => { updateEntry(selected.id, { mnemonic: next }); scheduleDerive(selected.id, 50) }}
+                onChainChange={(derivId, chain) => { updateDeriv(selected.id, derivId, { chain, addresses: null, xpub: null }); scheduleDerive(selected.id, 50) }}
+                onCountChange={(derivId, count) => { updateDeriv(selected.id, derivId, { count }); scheduleDerive(selected.id, 600) }}
+                onDescChange={(derivId, index, desc) => {
+                  const d = selected.derivations.find((x) => x.id === derivId)
+                  if (d) updateDeriv(selected.id, derivId, { descs: { ...d.descs, [index]: desc } })
+                }}
+                onRemoveSection={(derivId) => updateEntry(selected.id, { derivations: selected.derivations.filter((d) => d.id !== derivId) })}
+                onAddSection={addDerivSection}
+                onCopy={flashCopied}
+              />
+            )}
+            {selected?.kind === 'xpub' && (
+              <XpubEditor
+                entry={selected}
+                confirmingDelete={confirmDeleteId === selected.id}
+                copiedKey={copiedKey}
+                onLabelChange={(v) => updateEntry(selected.id, { label: v })}
+                onXpubChange={(v) => { updateEntry(selected.id, { xpub: v }); scheduleDerive(selected.id) }}
+                onNoteChange={(v) => updateEntry(selected.id, { note: v })}
+                onDelete={onDelete}
                 onChainChange={(derivId, chain) => { updateDeriv(selected.id, derivId, { chain, addresses: null, xpub: null }); scheduleDerive(selected.id, 50) }}
                 onCountChange={(derivId, count) => { updateDeriv(selected.id, derivId, { count }); scheduleDerive(selected.id, 600) }}
                 onDescChange={(derivId, index, desc) => {
@@ -211,6 +279,7 @@ export function App({ wordlistVerified }: { wordlistVerified: boolean }) {
         <span className={allValid ? 'sv-status-valid-all' : undefined}>
           <StatusItem label="Valid" value={String(validSeeds.length)} />
         </span>
+        <StatusItem label="Xpubs" value={String(xpubCount)} />
         <StatusItem label="Text sections" value={String(noteCount)} />
         <StatusSpacer />
         {wordlistVerified && <span className="sv-status-accent">BIP39 wordlist · SHA-256 verified</span>}

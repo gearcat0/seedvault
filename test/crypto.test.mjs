@@ -7,8 +7,8 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
-  selfTest, validateMnemonic, mnemonicToSeed, deriveAddresses,
-  opensslEncrypt, opensslDecrypt, armor, dearmor, asciify, suggest, normalizeMnemonic,
+  selfTest, validateMnemonic, mnemonicToSeed, deriveAddresses, deriveFromXpub, validateXpub,
+  XPUB_CHAINS, opensslEncrypt, opensslDecrypt, armor, dearmor, asciify, suggest, normalizeMnemonic,
 } from '../dist/test/seedcrypto.mjs'
 import { buildMarkdown, decryptCommand } from '../dist/test/markdown.mjs'
 import { reorderEntries } from '../dist/test/types.mjs'
@@ -160,6 +160,52 @@ test('account xpub alone reproduces the addresses (watch-only)', async () => {
   assert.match((await deriveAddresses(seed, 'tron', 1)).xpub, /^xpub/)
 })
 
+test('a pasted xpub alone reproduces the seed-derived addresses on every secp chain', async () => {
+  const seed = mnemonicToSeed(VECTOR, '')
+  assert.deepEqual(XPUB_CHAINS, ['btc-segwit', 'btc-nested', 'btc-legacy', 'eth', 'tron'])
+  for (const chain of XPUB_CHAINS) {
+    const full = await deriveAddresses(seed, chain, 3)
+    const watch = await deriveFromXpub(full.xpub, chain, 3)
+    assert.deepEqual(watch.addresses.map((a) => a.address), full.addresses.map((a) => a.address), chain)
+    for (const a of watch.addresses) {
+      assert.equal(a.priv, undefined) // watch-only: no private keys anywhere
+      assert.equal(a.path, '0/' + a.index) // path relative to the pasted key
+    }
+    assert.equal(watch.xpub, null)
+  }
+  // whitespace around the pasted key is tolerated
+  const zpub = (await deriveAddresses(seed, 'btc-segwit', 1)).xpub
+  assert.equal((await deriveFromXpub('  ' + zpub + '\n', 'btc-segwit', 1)).addresses[0].address,
+    'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu')
+  // ed25519 has no public derivation
+  await assert.rejects(() => deriveFromXpub(zpub, 'sol', 1))
+})
+
+test('validateXpub classifies formats and rejects garbage and private keys', async () => {
+  const seed = mnemonicToSeed(VECTOR, '')
+  const zpub = (await deriveAddresses(seed, 'btc-segwit', 1)).xpub
+  const ypub = (await deriveAddresses(seed, 'btc-nested', 1)).xpub
+  const xpub = (await deriveAddresses(seed, 'eth', 1)).xpub
+  for (const [key, format, defaultChain] of [
+    [zpub, 'zpub', 'btc-segwit'], [ypub, 'ypub', 'btc-nested'], [xpub, 'xpub', 'btc-legacy'],
+  ]) {
+    const info = validateXpub(key)
+    assert.equal(info.ok, true)
+    assert.equal(info.format, format)
+    assert.equal(info.defaultChain, defaultChain)
+    assert.equal(info.depth, 3) // account-level
+  }
+  assert.equal(validateXpub('  ' + zpub + '  ').ok, true) // whitespace tolerated
+  assert.match(validateXpub('not a key').error, /base58check/)
+  // flipping the last character breaks the checksum
+  assert.equal(validateXpub(zpub.slice(0, -1) + (zpub.endsWith('s') ? 't' : 's')).ok, false)
+  // an extended PRIVATE key is refused with a loud warning
+  const { HDKey } = await import('@scure/bip32')
+  const prv = validateXpub(HDKey.fromMasterSeed(seed).privateExtendedKey)
+  assert.equal(prv.ok, false)
+  assert.match(prv.error, /PRIVATE/)
+})
+
 test('suggest completes prefixes from the wordlist', () => {
   assert.deepEqual(suggest('zo', 8), ['zone', 'zoo'])
   assert.equal(suggest('', 8).length, 0)
@@ -281,6 +327,24 @@ test('chain names and xpub line are ASCII with the xpub on its own line', async 
   assert.match(md, /First 1 addresses -- Bitcoin -- Native SegWit \(BIP84\):/) // no em dash
   assert.match(md, /account xpub \(watch-only, finds all balances\):\n {4}zpub6rFR7y4Q2Aij/)
   for (const ch of md) assert.ok(ch.charCodeAt(0) <= 127)
+})
+
+test('xpub entries export as watch-only sections with no private keys', async () => {
+  const seed = mnemonicToSeed(VECTOR, '')
+  const zpub = (await deriveAddresses(seed, 'btc-segwit', 2)).xpub
+  const watch = await deriveFromXpub(zpub, 'btc-segwit', 2)
+  const md = buildMarkdown([{
+    id: 1, kind: 'xpub', label: 'Ledger — watch', mnemonic: '', passphrase: '',
+    xpub: '  ' + zpub, xpubInfo: null, note: 'seed lives on the metal plate', validation: null,
+    derivations: [{ id: 'd1', chain: 'btc-segwit', count: '2', deriving: false, descs: { 0: 'first' }, ...watch }],
+  }])
+  assert.match(md, /## 1\. Ledger -- watch/)
+  assert.match(md, /- Type: extended public key \(watch-only -- derives addresses, cannot spend\)/)
+  assert.ok(md.includes('Extended public key:\n\n    ' + zpub + '\n')) // trimmed, on its own line
+  assert.match(md, /First 2 addresses -- Bitcoin -- Native SegWit \(BIP84\):/)
+  assert.match(md, /^ {4}0\/0 +bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu {2}-- first$/m)
+  assert.doesNotMatch(md, /private key:|BIP39 passphrase|Seed phrase:/) // nothing secret, no seed boilerplate
+  for (const ch of md) assert.ok(ch.charCodeAt(0) <= 127, 'non-ASCII in output: ' + ch)
 })
 
 test('reorderEntries moves an entry to an insertion point', () => {

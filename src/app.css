@@ -147,6 +147,8 @@ html, body, #root { height: 100%; margin: 0; }
   line-height: 1.7;
 }
 
+.sv-xpub-input { word-break: break-all; }
+
 .sv-suggest-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sv-suggest-label { font-size: var(--evm-text-xs); color: var(--evm-text-4); }
 /* clickable completion pill — reuses the DS badge look on a real button */

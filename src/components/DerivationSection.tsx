@@ -5,11 +5,15 @@ import type { ChainKey, DerivedAddress } from '../lib/seedcrypto'
 import type { Derivation } from '../lib/types'
 
 export function DerivationSection({
-  deriv, removable, copiedKey, onChainChange, onCountChange, onDescChange, onRemove, onCopy,
+  deriv, removable, copiedKey, chains, watchOnly, onChainChange, onCountChange, onDescChange, onRemove, onCopy,
 }: {
   deriv: Derivation
   removable: boolean
   copiedKey: string | null
+  /** chain options to offer; defaults to all chains */
+  chains?: ChainKey[]
+  /** derived from a pasted xpub — no seed phrase, no private keys */
+  watchOnly?: boolean
   onChainChange: (chain: ChainKey) => void
   onCountChange: (count: string) => void
   onDescChange: (index: number, desc: string) => void
@@ -20,8 +24,10 @@ export function DerivationSection({
 
   return (
     <Card
-      title="Derived addresses"
-      subtitle="Compare with your wallet — a match proves the phrase was entered correctly."
+      title={watchOnly ? 'Derived addresses (watch-only)' : 'Derived addresses'}
+      subtitle={watchOnly
+        ? 'Compare with your wallet — a match proves the key was entered correctly. No private keys exist here.'
+        : 'Compare with your wallet — a match proves the phrase was entered correctly.'}
       actions={
         <>
           <Select
@@ -29,7 +35,7 @@ export function DerivationSection({
             onChange={(ev) => onChainChange(ev.target.value as ChainKey)}
             style={{ width: 'auto', paddingRight: 32 }}
           >
-            {(Object.keys(CHAINS) as ChainKey[]).map((c) => (
+            {(chains ?? (Object.keys(CHAINS) as ChainKey[])).map((c) => (
               <option key={c} value={c}>{CHAINS[c].name}</option>
             ))}
           </Select>
@@ -106,7 +112,11 @@ export function DerivationSection({
         </div>
       )}
       {!deriv.deriving && !hasAddresses && (
-        <div className="sv-no-derive">Enter a valid seed phrase above to derive addresses.</div>
+        <div className="sv-no-derive">
+          {watchOnly
+            ? 'Enter a valid extended public key above to derive addresses.'
+            : 'Enter a valid seed phrase above to derive addresses.'}
+        </div>
       )}
     </Card>
   )

@@ -172,8 +172,9 @@ export interface DerivedAddress {
   path: string
   address: string
   /** wallet-importable private key: WIF (Bitcoin), 0x-hex (Ethereum),
-      hex (Tron), base58 64-byte keypair (Solana / Phantom format) */
-  priv: string
+      hex (Tron), base58 64-byte keypair (Solana / Phantom format).
+      Absent for watch-only derivations from a pasted xpub. */
+  priv?: string
 }
 
 export interface AccountDerivation {
@@ -184,10 +185,11 @@ export interface AccountDerivation {
   addresses: DerivedAddress[]
 }
 
-// SLIP-0132 extended-key version bytes: BIP84 zprv/zpub, BIP49 yprv/ypub.
-// BIP44 uses scure's xprv/xpub default.
+// SLIP-0132 extended-key version bytes: BIP84 zprv/zpub, BIP49 yprv/ypub,
+// plus the BIP32 xprv/xpub default.
 const ZPRV_ZPUB = { private: 0x04b2430c, public: 0x04b24746 }
 const YPRV_YPUB = { private: 0x049d7878, public: 0x049d7cb2 }
+const XPRV_XPUB = { private: 0x0488ade4, public: 0x0488b21e }
 
 /** WIF for a compressed-pubkey private key (mainnet). */
 const toWif = (key: Uint8Array) =>
@@ -226,21 +228,100 @@ export async function deriveAddresses(
     const node = external.deriveChild(i)
     const pub33 = node.publicKey!
     const key = node.privateKey!
-    let address: string, priv: string
-    if (chain === 'btc-segwit' || chain === 'btc-nested' || chain === 'btc-legacy') {
-      address = chain === 'btc-segwit' ? btcSegwitAddress(pub33)
-        : chain === 'btc-nested' ? btcNestedAddress(pub33)
-        : btcLegacyAddress(pub33)
-      priv = toWif(key)
-    } else {
-      const pub64 = secp256k1.ProjectivePoint.fromHex(pub33).toRawBytes(false).slice(1)
-      address = chain === 'eth' ? ethAddress(pub64) : tronAddress(pub64)
-      priv = chain === 'eth' ? '0x' + hex(key) : hex(key)
-    }
+    const address = secpAddress(chain, pub33)
+    const priv = chain === 'eth' ? '0x' + hex(key) : chain === 'tron' ? hex(key) : toWif(key)
     addresses.push({ index: i, path: CHAINS[chain].pathLabel(i), address, priv })
     if (i % 5 === 4) await yieldToUi()
   }
   return { xpub: acct.publicExtendedKey, addresses }
+}
+
+/** Address for a compressed secp256k1 public key in the chain's format. */
+function secpAddress(chain: Exclude<ChainKey, 'sol'>, pub33: Uint8Array): string {
+  if (chain === 'btc-segwit') return btcSegwitAddress(pub33)
+  if (chain === 'btc-nested') return btcNestedAddress(pub33)
+  if (chain === 'btc-legacy') return btcLegacyAddress(pub33)
+  const pub64 = secp256k1.ProjectivePoint.fromHex(pub33).toRawBytes(false).slice(1)
+  return chain === 'eth' ? ethAddress(pub64) : tronAddress(pub64)
+}
+
+// ---------- watch-only derivation from a pasted extended public key ----------
+
+export type XpubFormat = 'xpub' | 'ypub' | 'zpub'
+
+const XPUB_FORMATS: Record<XpubFormat, { versions: { private: number; public: number }; defaultChain: ChainKey }> = {
+  xpub: { versions: XPRV_XPUB, defaultChain: 'btc-legacy' },
+  ypub: { versions: YPRV_YPUB, defaultChain: 'btc-nested' },
+  zpub: { versions: ZPRV_ZPUB, defaultChain: 'btc-segwit' },
+}
+
+// SLIP-0132 extended PRIVATE key versions — recognized only to reject them loudly.
+const XPRV_VERSIONS: Record<number, string> = {
+  [XPRV_XPUB.private]: 'xprv', [YPRV_YPUB.private]: 'yprv', [ZPRV_ZPUB.private]: 'zprv',
+}
+
+/** Chains available for watch-only xpub derivation: every secp256k1 chain.
+    Solana (ed25519) has no public derivation. */
+export const XPUB_CHAINS = (Object.keys(CHAINS) as ChainKey[]).filter((c) => c !== 'sol')
+
+export interface XpubInfo {
+  ok: boolean
+  /** human-readable problem when !ok */
+  error?: string
+  format?: XpubFormat
+  /** BIP32 depth byte — 3 is a standard account-level key */
+  depth?: number
+  /** the chain conventionally encoded with this version prefix */
+  defaultChain?: ChainKey
+}
+
+export function validateXpub(text: string): XpubInfo {
+  const t = text.trim()
+  let raw: Uint8Array
+  try {
+    raw = base58check.decode(t)
+  } catch {
+    return { ok: false, error: 'Not valid base58check — check for typos, truncation or stray characters.' }
+  }
+  if (raw.length !== 78) return { ok: false, error: 'Decodes to ' + raw.length + ' bytes — a BIP32 extended key is 78.' }
+  const version = ((raw[0] << 24) | (raw[1] << 16) | (raw[2] << 8) | raw[3]) >>> 0
+  const prvName = XPRV_VERSIONS[version]
+  if (prvName) {
+    return {
+      ok: false,
+      error: 'This is an extended PRIVATE key (' + prvName + ') — it can spend funds and does not belong in a watch-only entry. Paste the matching public key, or back the wallet up as a seed phrase.',
+    }
+  }
+  const format = (Object.keys(XPUB_FORMATS) as XpubFormat[])
+    .find((f) => XPUB_FORMATS[f].versions.public === version)
+  if (!format) return { ok: false, error: 'Unrecognized version prefix — supported keys are xpub, ypub and zpub.' }
+  try {
+    HDKey.fromExtendedKey(t, XPUB_FORMATS[format].versions)
+  } catch {
+    return { ok: false, error: 'The key decodes but its key material is invalid.' }
+  }
+  return { ok: true, format, depth: raw[4], defaultChain: XPUB_FORMATS[format].defaultChain }
+}
+
+/** Derive `count` receive addresses (external chain, paths `0/i` relative to
+    the pasted key) from an account xpub/ypub/zpub. Watch-only: no private
+    keys exist on this side of the derivation. The address format follows
+    `chain`, chosen independently of the key's version prefix. */
+export async function deriveFromXpub(
+  text: string, chain: ChainKey, count: number
+): Promise<AccountDerivation> {
+  if (chain === 'sol') throw new Error('ed25519 chains have no public derivation')
+  const info = validateXpub(text)
+  if (!info.ok || !info.format) throw new Error(info.error || 'invalid extended public key')
+  const node = HDKey.fromExtendedKey(text.trim(), XPUB_FORMATS[info.format].versions)
+  const external = node.deriveChild(0)
+  const addresses: DerivedAddress[] = []
+  for (let i = 0; i < count; i++) {
+    addresses.push({ index: i, path: '0/' + i, address: secpAddress(chain, external.deriveChild(i).publicKey!) })
+    if (i % 5 === 4) await yieldToUi()
+  }
+  // the source key is the entry itself — nothing extra to report
+  return { xpub: null, addresses }
 }
 
 // ---------- OpenSSL-compatible encryption ----------
@@ -319,6 +400,12 @@ export async function selfTest(): Promise<Record<string, boolean>> {
   r.btcNested = nested.addresses[0].address === '37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf'
   r.btcYpub = nested.xpub === 'ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNB6VvmSEgytSER9azLDWCxoJwW7Ke7icmizBMXrzBx9979FfaHxHcrArf3zbeJJJUZPf663zsP'
   r.eth = (await deriveAddresses(seed, 'eth', 1)).addresses[0].address === '0x9858EfFD232B4033E47d90003D41EC34EcaEda94'
+  // watch-only: the account zpub alone must reproduce the BIP84 address
+  const watch = await deriveFromXpub(segwit.xpub!, 'btc-segwit', 1)
+  r.xpubDerive = watch.addresses[0].address === 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu'
+  r.xpubNoPriv = watch.addresses[0].priv === undefined
+  r.xpubFormat = validateXpub(segwit.xpub!).format === 'zpub'
+  r.xpubRejectsPrv = !validateXpub(HDKey.fromMasterSeed(seed).privateExtendedKey).ok
   // SLIP-0010 ed25519 test vector 1, chain m/0'
   const s10 = slip10Path(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]), [H + 0])
   r.slip10Priv = hex(s10.k) === '68e0fe46dfb67e368c75379acec591dad19df3cde26e63b93a8e704f1dade7a3'

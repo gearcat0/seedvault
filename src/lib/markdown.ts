@@ -34,27 +34,37 @@ export function buildMarkdown(entries: Entry[], kdfIter = KDF_ITERATIONS): strin
       lines.push('')
       continue
     }
-    const words = normalizeMnemonic(e.mnemonic)
-    lines.push('- Type: BIP39 seed phrase, ' + words.length + ' words (checksum valid)')
-    if (!e.passphrase) {
-      lines.push('- BIP39 passphrase: none')
+    if (e.kind === 'xpub') {
+      lines.push('- Type: extended public key (watch-only -- derives addresses, cannot spend)')
+      lines.push('')
+      lines.push('Extended public key:')
+      lines.push('')
+      // on its own line -- the key is long and would wrap
+      lines.push('    ' + asciify(e.xpub.trim()))
+      lines.push('')
     } else {
-      const pass = asciify(e.passphrase)
-      // If the passphrase held non-ASCII, it is shown escaped -- warn loudly,
-      // because it must be typed back as the ORIGINAL characters, not the escapes.
-      const note = pass !== e.passphrase
-        ? '  (contains non-ASCII; \\uXXXX are Unicode escapes -- restore the original characters, not this text)'
-        : ''
-      lines.push('- BIP39 passphrase: `' + pass + '`' + note)
+      const words = normalizeMnemonic(e.mnemonic)
+      lines.push('- Type: BIP39 seed phrase, ' + words.length + ' words (checksum valid)')
+      if (!e.passphrase) {
+        lines.push('- BIP39 passphrase: none')
+      } else {
+        const pass = asciify(e.passphrase)
+        // If the passphrase held non-ASCII, it is shown escaped -- warn loudly,
+        // because it must be typed back as the ORIGINAL characters, not the escapes.
+        const note = pass !== e.passphrase
+          ? '  (contains non-ASCII; \\uXXXX are Unicode escapes -- restore the original characters, not this text)'
+          : ''
+        lines.push('- BIP39 passphrase: `' + pass + '`' + note)
+      }
+      lines.push('')
+      lines.push('Seed phrase:')
+      lines.push('')
+      for (let i = 0; i < words.length; i += 4) {
+        const chunk = words.slice(i, i + 4).map((w, j) => String(i + j + 1).padStart(2, ' ') + '. ' + w.padEnd(10))
+        lines.push(('    ' + chunk.join(' ')).replace(/\s+$/, ''))
+      }
+      lines.push('')
     }
-    lines.push('')
-    lines.push('Seed phrase:')
-    lines.push('')
-    for (let i = 0; i < words.length; i += 4) {
-      const chunk = words.slice(i, i + 4).map((w, j) => String(i + j + 1).padStart(2, ' ') + '. ' + w.padEnd(10))
-      lines.push(('    ' + chunk.join(' ')).replace(/\s+$/, ''))
-    }
-    lines.push('')
     if (e.note && e.note.trim()) {
       lines.push('Notes:')
       lines.push('')
@@ -74,7 +84,7 @@ export function buildMarkdown(entries: Entry[], kdfIter = KDF_ITERATIONS): strin
       for (const a of d.addresses) {
         const desc = d.descs[a.index]
         lines.push('    ' + a.path.padEnd(20) + ' ' + a.address + (desc && desc.trim() ? '  -- ' + asciify(desc.trim()) : ''))
-        lines.push('    ' + ''.padEnd(20) + ' private key: ' + a.priv)
+        if (a.priv) lines.push('    ' + ''.padEnd(20) + ' private key: ' + a.priv)
       }
       lines.push('')
     }

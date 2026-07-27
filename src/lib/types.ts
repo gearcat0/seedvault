@@ -1,4 +1,4 @@
-import type { ChainKey, DerivedAddress, Validation } from './seedcrypto'
+import type { ChainKey, DerivedAddress, Validation, XpubInfo } from './seedcrypto'
 
 export interface Derivation {
   id: string
@@ -13,12 +13,17 @@ export interface Derivation {
   descs: Record<number, string>
 }
 
+export type EntryKind = 'seed' | 'note' | 'xpub'
+
 export interface Entry {
   id: number
-  kind: 'seed' | 'note'
+  kind: EntryKind
   label: string
   mnemonic: string
   passphrase: string
+  /** pasted extended public key (xpub entries only) */
+  xpub: string
+  xpubInfo: XpubInfo | null
   note: string
   validation: Validation | null
   derivations: Derivation[]

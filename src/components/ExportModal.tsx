@@ -38,12 +38,13 @@ export function ExportModal({ open, entries, copiedKey, onCopy, onClose }: {
 
   const preview = useMemo(() => (open ? buildMarkdown(entries) : ''), [open, entries])
 
-  const invalidSeeds = entries.filter((e) => e.kind === 'seed' && !e.validation?.ok)
-  const blocked = entries.length === 0 || invalidSeeds.length > 0
+  const invalidEntries = entries.filter((e) =>
+    (e.kind === 'seed' && !e.validation?.ok) || (e.kind === 'xpub' && !e.xpubInfo?.ok))
+  const blocked = entries.length === 0 || invalidEntries.length > 0
   const blockedMsg = entries.length === 0
-    ? 'Nothing to export yet — add at least one seed phrase or text section.'
-    : 'Cannot export: ' + invalidSeeds.length + ' seed entr' + (invalidSeeds.length > 1 ? 'ies are' : 'y is') +
-      ' not valid yet (' + invalidSeeds.map((e) => '"' + (e.label || 'Untitled') + '"').join(', ') + '). Fix or delete before encrypting.'
+    ? 'Nothing to export yet — add at least one seed phrase, xpub or text section.'
+    : 'Cannot export: ' + invalidEntries.length + ' entr' + (invalidEntries.length > 1 ? 'ies are' : 'y is') +
+      ' not valid yet (' + invalidEntries.map((e) => '"' + (e.label || 'Untitled') + '"').join(', ') + '). Fix or delete before encrypting.'
 
   const strength = passStrength(pass)
   const passOk = pass.length >= 8 && pass === pass2

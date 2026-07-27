@@ -13,6 +13,13 @@ export function entryStatus(e: Entry): { tone: Tone; status: string; meta: strin
       meta: trimmed ? trimmed.split(/\s+/).length + ' words' : 'empty',
     }
   }
+  if (e.kind === 'xpub') {
+    const meta = 'watch-only'
+    if (!e.xpub.trim()) return { tone: 'neutral', status: 'empty', meta }
+    if (e.xpubInfo?.ok) return { tone: 'success', status: 'valid', meta: e.xpubInfo.format + ' · ' + meta }
+    if (e.xpubInfo) return { tone: 'danger', status: 'invalid', meta }
+    return { tone: 'warning', status: 'checking', meta }
+  }
   const words = normalizeMnemonic(e.mnemonic)
   let meta = words.length ? words.length + ' words' : ''
   if (e.passphrase) meta += ' · +passphrase'
@@ -24,13 +31,14 @@ export function entryStatus(e: Entry): { tone: Tone; status: string; meta: strin
   return { tone: 'warning', status: 'checking', meta }
 }
 
-export function Sidebar({ entries, selectedId, onSelect, onReorder, onAddSeed, onAddNote }: {
+export function Sidebar({ entries, selectedId, onSelect, onReorder, onAddSeed, onAddXpub, onAddNote }: {
   entries: Entry[]
   selectedId: number | null
   onSelect: (id: number) => void
   /** Move entry `id` to insertion point `insertIndex` (0..entries.length). */
   onReorder: (id: number, insertIndex: number) => void
   onAddSeed: () => void
+  onAddXpub: () => void
   onAddNote: () => void
 }) {
   const [dragId, setDragId] = useState<number | null>(null)
@@ -101,6 +109,7 @@ export function Sidebar({ entries, selectedId, onSelect, onReorder, onAddSeed, o
       </div>
       <div className="sv-sidebar-foot">
         <Button variant="secondary" onClick={onAddSeed}>+ Seed phrase</Button>
+        <Button variant="ghost" onClick={onAddXpub}>+ Xpub (watch-only)</Button>
         <Button variant="ghost" onClick={onAddNote}>+ Text-only section</Button>
       </div>
     </div>
