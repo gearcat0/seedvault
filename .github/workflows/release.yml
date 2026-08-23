@@ -6,6 +6,10 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to (re)build and upload assets for, e.g. v0.6.0'
+        required: true
 
 permissions:
   contents: write
@@ -48,10 +52,23 @@ jobs:
         working-directory: seedvault
         run: npm run build
 
-      - name: Package and upload to the GitHub Release
+      - name: Package
         working-directory: seedvault
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Unsigned for now: no code-signing identity on any platform.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        run: npx electron-builder --publish never
+
+      # Uploaded by action-gh-release rather than electron-builder's own
+      # publisher, whose HTTP client times out on 100 MB+ assets.
+      - name: Attach installers to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: |
+            seedvault/release/*.AppImage
+            seedvault/release/*.deb
+            seedvault/release/*.dmg
+            seedvault/release/*.exe
+            seedvault/release/*.blockmap
+            seedvault/release/latest*.yml

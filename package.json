@@ -93,6 +93,9 @@
       "owner": "gearcat0",
       "repo": "seedvault",
       "releaseType": "release"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-${os}-${arch}-portable.${ext}"
     }
   }
 }
