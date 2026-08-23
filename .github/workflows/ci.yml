@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # `evm-ui` is a `file:../evm-ui` dependency, so both repos are checked
+      # out side by side and the design system is built first.
+      - uses: actions/checkout@v4
+        with:
+          path: seedvault
+      - uses: actions/checkout@v4
+        with:
+          repository: gearcat0/evm-ui
+          path: evm-ui
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build evm-ui
+        working-directory: evm-ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install
+        working-directory: seedvault
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: seedvault
+        run: npx tsc --noEmit
+
+      - name: Test with coverage
+        working-directory: seedvault
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: seedvault/coverage/lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false

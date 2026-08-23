@@ -26,6 +26,7 @@ if (!forTest) {
     platform: 'neutral',
     mainFields: ['module', 'main'],
     target: 'node20',
+    sourcemap: true,
     logLevel: 'info',
   })
 }
