@@ -8,7 +8,8 @@
     "build": "node esbuild.mjs",
     "start": "npm run build && electron .",
     "test": "npm run build:test && node --test test/*.test.mjs",
-    "build:test": "node esbuild.mjs --test"
+    "build:test": "node esbuild.mjs --test",
+    "test:coverage": "npm run build:test && mkdir -p coverage && node --enable-source-maps --test --experimental-test-coverage --test-coverage-exclude=\"node_modules/**\" --test-coverage-exclude=\"test/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info test/*.test.mjs"
   },
   "dependencies": {
     "@noble/curves": "^1.9.0",

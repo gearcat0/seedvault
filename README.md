@@ -1,5 +1,8 @@
 # Seed Vault
 
+[![CI](https://github.com/gearcat0/seedvault/actions/workflows/ci.yml/badge.svg)](https://github.com/gearcat0/seedvault/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/gearcat0/seedvault/graph/badge.svg)](https://codecov.io/gh/gearcat0/seedvault)
+
 Desktop app (Electron) for backing up BIP39 seed phrases. Each phrase is
 validated offline (wordlist + checksum), real addresses are derived for
 Bitcoin (Native SegWit / Nested-SegWit-P2SH / Legacy), Ethereum, Solana and Tron so you can compare against
@@ -31,6 +34,23 @@ without importing the whole seed, plus the account xpub (zpub for BIP84) for
 watch-only balance discovery. Solana has no xpub — SLIP-0010 ed25519 is
 hardened-only.
 
+## Screenshots
+
+A validated 12-word phrase (a published BIP39 test vector) with its derived
+Bitcoin addresses and account zpub, ready to compare against a wallet:
+
+![Validated seed phrase with derived addresses](docs/screenshots/seed-valid.png)
+
+A transcription error caught as you type — the bad word is highlighted, the
+wordlist completion is offered, and nothing is derived until the checksum passes:
+
+![Invalid word highlighted with autocomplete suggestion](docs/screenshots/seed-typo.png)
+
+Encrypt & export: plaintext preview of `seeds.md`, a plaintext envelope
+title, passphrase strength, and the exact `openssl` command to decrypt later:
+
+![Encrypt and export dialog](docs/screenshots/export.png)
+
 ## Guarantees
 
 - **Zero network.** Enforced three ways: `webRequest` deny-all in the main
@@ -61,8 +81,10 @@ hardened-only.
 npm install
 npm start          # build renderer + launch (add `-- --no-sandbox` in containers)
 npm test           # crypto/markdown suite incl. OpenSSL CLI round-trip
+npm run test:coverage  # same, plus a coverage table and coverage/lcov.info
 npx tsc --noEmit   # typecheck
 ```
 
 Layout: `main.js` / `preload.js` (Electron main), `index.html` + `src/`
-(renderer; `src/lib/seedcrypto.ts` is all the crypto), `test/`.
+(renderer; `src/lib/seedcrypto.ts` is all the crypto), `test/`,
+`.github/workflows/ci.yml` (typecheck + tests + coverage upload on every push).
