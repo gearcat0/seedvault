@@ -38,7 +38,7 @@
   "build": {
     "appId": "io.github.gearcat0.seedvault",
     "productName": "Seed Vault",
-    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "artifactName": "Seed-Vault-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -95,7 +95,7 @@
       "releaseType": "release"
     },
     "portable": {
-      "artifactName": "${productName}-${version}-${os}-${arch}-portable.${ext}"
+      "artifactName": "Seed-Vault-${version}-${os}-${arch}-portable.${ext}"
     }
   }
 }
