@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="600" height="420" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+  <defs>
+    <filter id="sh" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="600" height="420" rx="16" fill="#0f1115"/>
+
+  <!-- encrypted envelope (back) -->
+  <g transform="translate(330 60)" filter="url(#sh)">
+    <rect width="230" height="300" rx="8" fill="#16181d" stroke="#2a2e36"/>
+    <text x="16" y="28" fill="#7c8594" font-size="11">seeds.md.enc</text>
+    <g fill="#39404b" font-size="9">
+      <text x="16" y="52"># Family backup - copy 1 of 2</text>
+      <text x="16" y="66"># To decrypt run: openssl enc -d ...</text>
+      <text x="16" y="88">U2FsdGVkX1+8sLyd0Xwl0Q5b</text>
+      <text x="16" y="102">Hc3RvcmVkIGluIHRoZSBzYWZl</text>
+      <text x="16" y="116">cGxhdGUgdGhlIGZhbWlseSBt</text>
+      <text x="16" y="130">dWx0aXNpZyBrZXkgMiBvZiAz</text>
+      <text x="16" y="144">bm8gbmV0d29yayBubyB0ZW1w</text>
+      <text x="16" y="158">ZmlsZXMgaW4gbWVtb3J5IG9u</text>
+      <text x="16" y="172">bHkgQUVTLTI1Ni1DQkMgUEJL</text>
+      <text x="16" y="186">REYyIDEwMDAwMCBpdGVyYXRp</text>
+      <text x="16" y="200">b25zIFNhbHRlZF9fIGVudmVs</text>
+      <text x="16" y="214">b3BlIGJhc2U2NCBhcm1vcmVk</text>
+      <text x="16" y="228">cHJpbnRhYmxlIEFTQ0lJIHNh</text>
+      <text x="16" y="242">ZmUgdG8gcHJpbnQgb3IgcGFz</text>
+      <text x="16" y="256">dGUgYW55d2hlcmUgb3BlbnNz</text>
+      <text x="16" y="270">bCBjb21wYXRpYmxlPT09PT09</text>
+    </g>
+    <g transform="translate(150 250)">
+      <rect width="60" height="34" rx="6" fill="#0fbf8f" opacity=".15" stroke="#0fbf8f"/>
+      <text x="30" y="22" fill="#0fbf8f" font-size="11" text-anchor="middle">AES-256</text>
+    </g>
+  </g>
+
+  <!-- decrypted markdown (front) -->
+  <g transform="translate(40 30)" filter="url(#sh)">
+    <rect width="300" height="360" rx="8" fill="#fbfbf8" stroke="#d9d9d2"/>
+    <text x="18" y="32" fill="#1a1d23" font-size="15" font-weight="bold"># Seed phrase backup</text>
+    <text x="18" y="52" fill="#6b7280" font-size="9">Generated 2026-08-23 with Seed Vault, offline</text>
+    <line x1="18" y1="64" x2="282" y2="64" stroke="#e5e5df"/>
+
+    <text x="18" y="88" fill="#1a1d23" font-size="12" font-weight="bold">## 1. Ledger -- main cold storage</text>
+    <text x="18" y="106" fill="#374151" font-size="9">- Type: BIP39 seed phrase, 12 words (checksum valid)</text>
+    <text x="18" y="120" fill="#374151" font-size="9">- BIP39 passphrase: none</text>
+    <text x="18" y="140" fill="#0a7c5a" font-size="9">legal winner thank year wave sausage</text>
+    <text x="18" y="152" fill="#0a7c5a" font-size="9">worth useful legal winner thank yellow</text>
+    <text x="18" y="172" fill="#1a1d23" font-size="10" font-weight="bold">### Bitcoin -- Native SegWit (BIP84)</text>
+    <text x="18" y="186" fill="#6b7280" font-size="8.5">zpub6s3Buz3fYNRSZk9BFYo9RCMk...</text>
+    <text x="18" y="200" fill="#374151" font-size="8.5">0  m/84'/0'/0'/0/0  bc1qgkju4yvvtuz0s8vqn...</text>
+    <text x="18" y="212" fill="#374151" font-size="8.5">1  m/84'/0'/0'/0/1  bc1q0uez0durhkezwzmhf...</text>
+    <text x="18" y="226" fill="#1a1d23" font-size="10" font-weight="bold">### Ethereum (BIP44)</text>
+    <text x="18" y="240" fill="#374151" font-size="8.5">0  m/44'/60'/0'/0/0  0x9858EfFD232B4033E4...</text>
+    <text x="18" y="258" fill="#6b7280" font-size="9">Notes: metal plate in the safe, multisig key 2/3</text>
+    <line x1="18" y1="272" x2="282" y2="272" stroke="#e5e5df"/>
+
+    <text x="18" y="294" fill="#1a1d23" font-size="12" font-weight="bold">## 2. Trezor -- travel wallet</text>
+    <text x="18" y="310" fill="#374151" font-size="9">- Type: BIP39 seed phrase, 24 words (checksum valid)</text>
+    <text x="18" y="324" fill="#0a7c5a" font-size="9">army van defense carry jealous true ...</text>
+
+    <text x="18" y="348" fill="#1a1d23" font-size="12" font-weight="bold">## 3. Recovery instructions</text>
+  </g>
+
+  <text x="300" y="408" fill="#7c8594" font-size="11" text-anchor="middle">one validated document  -&gt;  one encrypted file, readable anywhere with openssl</text>
+</svg>
