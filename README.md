@@ -40,6 +40,15 @@ Rest assured that you will always be able to recover your seeds.
   </tr>
 </table>
 
+## Download
+
+Prebuilt, **unsigned** installers for Linux (AppImage, deb), macOS (dmg) and
+Windows (installer + portable exe) are attached to each
+[GitHub Release](https://github.com/gearcat0/seedvault/releases). Because
+they are not yet code-signed, macOS Gatekeeper and Windows SmartScreen will
+warn on first launch (right-click → Open on macOS; "More info → Run anyway"
+on Windows). Or build it yourself — see [Develop](#develop).
+
 ## Screenshots
 
 A validated 12-word phrase (a published BIP39 test vector) with its derived
@@ -123,7 +132,12 @@ npm start          # build renderer + launch (add `-- --no-sandbox` in container
 npm test           # crypto/markdown suite incl. OpenSSL CLI round-trip
 npm run test:coverage  # same, plus a coverage table and coverage/lcov.info
 npx tsc --noEmit   # typecheck
+npm run dist       # package installers for this OS into release/ (unsigned)
 ```
+
+Releases are cut by pushing a `v*` tag: `.github/workflows/release.yml`
+builds on Linux, macOS and Windows and attaches the installers to the
+GitHub Release for that tag.
 
 Layout: `main.js` / `preload.js` (Electron main), `index.html` + `src/`
 (renderer; `src/lib/seedcrypto.ts` is all the crypto), `test/`,

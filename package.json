@@ -1,6 +1,6 @@
 {
   "name": "seed-vault",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Validate seed phrases offline and encrypt them into a portable OpenSSL file",
   "private": true,
   "main": "main.js",
@@ -9,7 +9,8 @@
     "start": "npm run build && electron .",
     "test": "npm run build:test && node --test test/*.test.mjs",
     "build:test": "node esbuild.mjs --test",
-    "test:coverage": "npm run build:test && mkdir -p coverage && node --enable-source-maps --test --experimental-test-coverage --test-coverage-exclude=\"node_modules/**\" --test-coverage-exclude=\"test/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info test/*.test.mjs"
+    "test:coverage": "npm run build:test && mkdir -p coverage && node --enable-source-maps --test --experimental-test-coverage --test-coverage-exclude=\"node_modules/**\" --test-coverage-exclude=\"test/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info test/*.test.mjs",
+    "dist": "npm run build && electron-builder --publish never"
   },
   "dependencies": {
     "@noble/curves": "^1.9.0",
@@ -25,11 +26,73 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.24.2",
     "typescript": "^5.6.3"
   },
   "allowScripts": {
     "electron@33.4.11": true,
     "esbuild@0.24.2": true
+  },
+  "author": "gearcat0",
+  "build": {
+    "appId": "io.github.gearcat0.seedvault",
+    "productName": "Seed Vault",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "zoom.js",
+      "index.html",
+      "dist/renderer.js",
+      "dist/renderer.css",
+      "package.json",
+      "!node_modules/**"
+    ],
+    "npmRebuild": false,
+    "asar": true,
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "maintainer": "gearcat0"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "gearcat0",
+      "repo": "seedvault",
+      "releaseType": "release"
+    }
   }
 }

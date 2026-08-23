@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="110" fill="#0b0c10"/>
+  <rect x="22" y="22" width="468" height="468" rx="96" fill="none" stroke="#00e4b8" stroke-opacity=".35" stroke-width="6"/>
+  <text x="256" y="318" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,'DejaVu Sans Mono',monospace" font-weight="700" font-size="190" fill="#00e4b8">SV</text>
+</svg>
