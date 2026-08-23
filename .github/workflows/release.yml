@@ -1,0 +1,57 @@
+name: Release
+
+# Builds unsigned installers for Linux, macOS and Windows and attaches them to
+# a GitHub Release whenever a `v*` tag is pushed.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: seedvault
+      - uses: actions/checkout@v4
+        with:
+          repository: gearcat0/evm-ui
+          path: evm-ui
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build evm-ui
+        working-directory: evm-ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install
+        working-directory: seedvault
+        run: npm ci
+
+      - name: Test
+        working-directory: seedvault
+        run: npm test
+
+      - name: Build renderer
+        working-directory: seedvault
+        run: npm run build
+
+      - name: Package and upload to the GitHub Release
+        working-directory: seedvault
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Unsigned for now: no code-signing identity on any platform.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
