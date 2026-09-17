@@ -1,4 +1,6 @@
 import type { ChainKey, DerivedAddress, Validation, XpubInfo } from './seedcrypto'
+import type { Slip39Share, Slip39Status } from './slip39'
+import { passphraseOk } from './slip39'
 
 export interface Derivation {
   id: string
@@ -13,7 +15,7 @@ export interface Derivation {
   descs: Record<number, string>
 }
 
-export type EntryKind = 'seed' | 'note' | 'xpub'
+export type EntryKind = 'seed' | 'slip39' | 'note' | 'xpub'
 
 export interface Entry {
   id: number
@@ -26,8 +28,21 @@ export interface Entry {
   xpubInfo: XpubInfo | null
   note: string
   validation: Validation | null
+  /** SLIP39 share mnemonics, one per input box (slip39 entries only) */
+  slip39Shares: string[]
+  /** per-share validation + combined status (slip39 entries only) */
+  slip39: { shares: Slip39Share[]; status: Slip39Status } | null
   derivations: Derivation[]
 }
+
+/** A slip39 entry is exportable when its non-empty shares are all valid,
+    mutually consistent, and the passphrase is legal — completeness (enough
+    shares to recover) is deliberately NOT required: holding fewer than the
+    threshold in one place is the point of SLIP39. */
+export const slip39EntryOk = (e: Entry): boolean =>
+  !!e.slip39 && !e.slip39.status.error && passphraseOk(e.passphrase) &&
+  e.slip39.shares.some((s) => s.ok) &&
+  e.slip39.shares.every((s) => s.ok || s.words.length === 0)
 
 export const clampCount = (raw: string) => Math.min(50, Math.max(1, parseInt(raw, 10) || 10))
 

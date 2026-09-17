@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Button, Field, Input, Modal } from 'evm-ui'
 import { armor, opensslEncrypt } from '../lib/seedcrypto'
 import { buildMarkdown, decryptCommand, KDF_ITERATIONS } from '../lib/markdown'
+import { slip39EntryOk } from '../lib/types'
 import type { Entry } from '../lib/types'
 
 function passStrength(pass: string): number {
@@ -39,7 +40,8 @@ export function ExportModal({ open, entries, copiedKey, onCopy, onClose }: {
   const preview = useMemo(() => (open ? buildMarkdown(entries) : ''), [open, entries])
 
   const invalidEntries = entries.filter((e) =>
-    (e.kind === 'seed' && !e.validation?.ok) || (e.kind === 'xpub' && !e.xpubInfo?.ok))
+    (e.kind === 'seed' && !e.validation?.ok) || (e.kind === 'xpub' && !e.xpubInfo?.ok) ||
+    (e.kind === 'slip39' && !slip39EntryOk(e)))
   const blocked = entries.length === 0 || invalidEntries.length > 0
   const blockedMsg = entries.length === 0
     ? 'Nothing to export yet — add at least one seed phrase, xpub or text section.'

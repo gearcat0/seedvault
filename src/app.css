@@ -307,3 +307,8 @@ button.sv-suggestion:hover { filter: brightness(1.25); }
   font-size: var(--evm-text-xs);
   text-align: left;
 }
+
+/* SLIP39 share rows */
+.sv-share { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--evm-border); border-radius: var(--evm-radius-md); }
+.sv-share-head { display: flex; align-items: center; gap: 10px; }
+.sv-share-label { font-size: var(--evm-text-sm); font-weight: 600; color: var(--evm-text-2); }

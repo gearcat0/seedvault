@@ -1,4 +1,5 @@
 import { asciify, CHAINS, normalizeMnemonic } from './seedcrypto'
+import { validateShare, assessShares } from './slip39'
 import type { Entry } from './types'
 
 export const KDF_ITERATIONS = 100000
@@ -19,8 +20,9 @@ export function buildMarkdown(entries: Entry[], kdfIter = KDF_ITERATIONS): strin
   lines.push('# Seed phrase backup')
   lines.push('')
   lines.push('Generated ' + today + ' with Seed Vault (fully offline). Every seed phrase below')
-  lines.push('passed BIP39 checksum validation, and the listed addresses were derived from it --')
-  lines.push('after restoring, compare addresses to confirm a correct recovery.')
+  lines.push('passed checksum validation (BIP39, or SLIP39 per share), and the listed addresses')
+  lines.push('were derived from it -- after restoring, compare addresses to confirm a correct')
+  lines.push('recovery.')
   lines.push('')
   let n = 0
   for (const e of entries) {
@@ -42,6 +44,35 @@ export function buildMarkdown(entries: Entry[], kdfIter = KDF_ITERATIONS): strin
       // on its own line -- the key is long and would wrap
       lines.push('    ' + asciify(e.xpub.trim()))
       lines.push('')
+    } else if (e.kind === 'slip39') {
+      const infos = e.slip39Shares.map((t) => validateShare(t)).filter((s) => s.ok)
+      const st = assessShares(infos)
+      lines.push('- Type: SLIP39 (Shamir) backup, ' + infos.length + ' share' + (infos.length === 1 ? '' : 's') +
+        ', ' + (st.strengthBits || '?') + '-bit master secret (identifier ' + (st.id ?? '?') + ')')
+      if (st.groupCount && st.groupCount > 1) {
+        lines.push('- Groups: ' + st.groupThreshold + ' of ' + st.groupCount + ' groups required')
+      }
+      for (const g of st.groups) {
+        lines.push('- Group ' + (g.index + 1) + ': ' + g.have + ' share' + (g.have === 1 ? '' : 's') +
+          ' recorded here, any ' + g.need + ' of the group recover it')
+      }
+      if (!e.passphrase) {
+        lines.push('- SLIP39 passphrase: none')
+      } else {
+        lines.push('- SLIP39 passphrase: `' + asciify(e.passphrase) + '`')
+      }
+      lines.push('')
+      let k = 0
+      for (const s of infos) {
+        k++
+        lines.push('Share ' + k + ' (group ' + (s.groupIndex! + 1) + ', member ' + (s.memberIndex! + 1) + '):')
+        lines.push('')
+        for (let i = 0; i < s.words.length; i += 4) {
+          const chunk = s.words.slice(i, i + 4).map((w, j) => String(i + j + 1).padStart(2, ' ') + '. ' + w.padEnd(10))
+          lines.push(('    ' + chunk.join(' ')).replace(/\s+$/, ''))
+        }
+        lines.push('')
+      }
     } else {
       const words = normalizeMnemonic(e.mnemonic)
       lines.push('- Type: BIP39 seed phrase, ' + words.length + ' words (checksum valid)')

@@ -1,6 +1,7 @@
 import React, { useRef } from 'react'
 import { Badge, Button, Card, Field, Input, Textarea } from 'evm-ui'
 import { normalizeMnemonic, suggest } from '../lib/seedcrypto'
+import { looksLikeSlip39 } from '../lib/slip39'
 import type { ChainKey } from '../lib/seedcrypto'
 import type { Entry } from '../lib/types'
 import { DerivationSection } from './DerivationSection'
@@ -18,6 +19,12 @@ function seedView(e: Entry) {
   let tone: Tone = 'neutral', status = 'empty', message = '', messageClass = 'neutral'
   if (!words.length) { tone = 'neutral'; status = 'empty' }
   else if (v?.ok) { tone = 'success'; status = 'checksum valid' }
+  else if (v && looksLikeSlip39(words)) {
+    tone = 'danger'
+    status = 'SLIP39 share'
+    message = 'These are SLIP39 words -- a Shamir share, not a BIP39 seed phrase. SLIP39 is not supported here: add a "SLIP39 seed phrase" entry from the sidebar instead.'
+    messageClass = 'danger'
+  }
   else if (v && v.badWords.length) {
     tone = 'danger'
     status = v.badWords.length + ' invalid word' + (v.badWords.length > 1 ? 's' : '')

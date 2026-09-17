@@ -13,6 +13,18 @@ export function entryStatus(e: Entry): { tone: Tone; status: string; meta: strin
       meta: trimmed ? trimmed.split(/\s+/).length + ' words' : 'empty',
     }
   }
+  if (e.kind === 'slip39') {
+    const n = e.slip39Shares.filter((t) => t.trim()).length
+    let meta = n ? n + ' share' + (n > 1 ? 's' : '') : ''
+    if (e.passphrase) meta += (meta ? ' · ' : '') + '+passphrase'
+    if (!n) return { tone: 'neutral', status: 'empty', meta }
+    const st = e.slip39?.status
+    if (!st) return { tone: 'warning', status: 'checking', meta }
+    if (st.error) return { tone: 'danger', status: 'inconsistent', meta }
+    if (e.slip39!.shares.some((s) => !s.ok && s.words.length > 0)) return { tone: 'danger', status: 'invalid share', meta }
+    if (st.complete) return { tone: 'success', status: 'recovered', meta }
+    return { tone: 'warning', status: 'incomplete', meta }
+  }
   if (e.kind === 'xpub') {
     const meta = 'watch-only'
     if (!e.xpub.trim()) return { tone: 'neutral', status: 'empty', meta }
@@ -31,13 +43,14 @@ export function entryStatus(e: Entry): { tone: Tone; status: string; meta: strin
   return { tone: 'warning', status: 'checking', meta }
 }
 
-export function Sidebar({ entries, selectedId, onSelect, onReorder, onAddSeed, onAddXpub, onAddNote }: {
+export function Sidebar({ entries, selectedId, onSelect, onReorder, onAddSeed, onAddSlip39, onAddXpub, onAddNote }: {
   entries: Entry[]
   selectedId: number | null
   onSelect: (id: number) => void
   /** Move entry `id` to insertion point `insertIndex` (0..entries.length). */
   onReorder: (id: number, insertIndex: number) => void
   onAddSeed: () => void
+  onAddSlip39: () => void
   onAddXpub: () => void
   onAddNote: () => void
 }) {
@@ -109,6 +122,7 @@ export function Sidebar({ entries, selectedId, onSelect, onReorder, onAddSeed, o
       </div>
       <div className="sv-sidebar-foot">
         <Button variant="secondary" onClick={onAddSeed}>+ Seed phrase</Button>
+        <Button variant="ghost" onClick={onAddSlip39}>+ SLIP39 seed phrase</Button>
         <Button variant="ghost" onClick={onAddXpub}>+ Xpub (watch-only)</Button>
         <Button variant="ghost" onClick={onAddNote}>+ Text-only section</Button>
       </div>

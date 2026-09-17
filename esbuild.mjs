@@ -18,7 +18,7 @@ if (!forTest) {
   // ESM bundle of the crypto + markdown modules so node --test can exercise
   // exactly the code the app ships.
   await build({
-    entryPoints: ['src/lib/seedcrypto.ts', 'src/lib/markdown.ts', 'src/lib/types.ts'],
+    entryPoints: ['src/lib/seedcrypto.ts', 'src/lib/markdown.ts', 'src/lib/types.ts', 'src/lib/slip39.ts'],
     bundle: true,
     outdir: 'dist/test',
     outExtension: { '.js': '.mjs' },

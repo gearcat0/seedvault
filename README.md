@@ -15,6 +15,10 @@ Seed Vault is a small desktop app that does exactly that job, in an afternoon:
 - **Paste or type each phrase** and know immediately that it's right — every
   word is checked against the BIP39 wordlist, the checksum is verified, and
   typos get highlighted with the intended word suggested.
+- **SLIP39 (Shamir) backups too.** Hold shares of a split seed (e.g. a Trezor
+  Shamir backup)? Enter the 20- or 33-word shares you have: each is
+  checksum-validated on its own, group/threshold progress is tracked, and once
+  a recoverable set is present the master secret is verified the same way.
 - **Prove it's the real one.** The app derives the actual Bitcoin, Ethereum,
   Solana and Tron addresses from each phrase so you can compare them with
   your wallet. A match means the backup will recover the right funds.
@@ -69,8 +73,9 @@ title, passphrase strength, and the exact `openssl` command to decrypt later:
 
 ## How it works
 
-Desktop app (Electron) for backing up BIP39 seed phrases. Each phrase is
-validated offline (wordlist + checksum), real addresses are derived for
+Desktop app (Electron) for backing up BIP39 seed phrases and SLIP39 (Shamir)
+share sets. Each phrase is validated offline (wordlist + checksum; RS1024 per
+share and Shamir recovery for SLIP39), real addresses are derived for
 Bitcoin (Native SegWit / Nested-SegWit-P2SH / Legacy), Ethereum, Solana and Tron so you can compare against
 your wallet and catch transcription errors, and everything is encrypted into a
 single `seeds.md.enc` file that any machine with OpenSSL can decrypt:
@@ -112,8 +117,8 @@ hardened-only.
   header. The test suite round-trips against the real `openssl` CLI in both
   directions, comments included.
 - **Self-testing crypto.** On every launch the renderer re-checks published
-  test vectors (BIP39, BIP84/BIP44, SLIP-0010, keccak/ripemd, OpenSSL
-  round-trip, wordlist SHA-256) and refuses to run if any fail.
+  test vectors (BIP39, BIP84/BIP44, SLIP-0010, SLIP39 recovery, keccak/ripemd,
+  OpenSSL round-trip, wordlist SHA-256s) and refuses to run if any fail.
 - Clipboard copies are cleared after 30 s (unless you copied something else
   since); Chromium spellcheck is disabled; closing with entries warns first.
 
