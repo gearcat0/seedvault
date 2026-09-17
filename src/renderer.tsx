@@ -3,13 +3,18 @@ import { createRoot } from 'react-dom/client'
 import 'evm-ui/styles.css'
 import './app.css'
 import { selfTest } from './lib/seedcrypto'
+import { slip39SelfTest } from './lib/slip39'
 import { App } from './App'
 
 const root = createRoot(document.getElementById('root')!)
 
 // Refuse to run if any published test vector fails — a wrong address or a
 // non-portable ciphertext is worse than no app at all.
-selfTest().then((r) => {
+Promise.all([selfTest(), slip39SelfTest()]).then(([a, b]) => {
+  const r = { ...a, ...b }
+  r.allPass = a.allPass && Object.values(b).every(Boolean)
+  return r
+}).then((r) => {
   if (r.allPass) {
     root.render(<App wordlistVerified={r.wordlist} />)
   } else {
